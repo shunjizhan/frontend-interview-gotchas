@@ -1,0 +1,5 @@
+## run
+`node run.js`
+this should generate a `dist/` folder with the bundle code
+
+or `yarn go`
