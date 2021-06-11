@@ -1,5 +1,5 @@
 
-## 打包过后的代码基本结构
+# 打包过后的代码基本结构
 webpack打包过后主要是用到`__webpack_require__`去代替`import`还有`require`,从而能够兼容不同的语法（cjs和esm）。整个的入口是一个IIFE，参数`modules`就是一个obj，key是模块的路径，value是包裹过后的这个模块的代码。不同的语法会有不同的包裹方法，如果是cjs基本就不用怎么包裹。
 
 当一个模块引入另一个模块，就会递归调用`__webpack_require__`。
@@ -116,7 +116,7 @@ var modules = {
 })(modules)
 ```
 
-## 懒加载
+## 懒加载的代码结构
 主要是用到三个新函数：
 - webpackJsonpCallback合并modules
 - __webpack_require__.e创建html tag和利用promise异步加载，结果给t
@@ -267,7 +267,7 @@ var modules = {
 })(modules)
 ```
 
-## tapable
+# tapable
 webpack编译流程：
 - 配置初始化
 - 内容编译
@@ -279,12 +279,12 @@ webpack编译流程：
 - 负责编译的`compiler`
 - 负责创建bundles的`compilation`
 
-### tapable工作流程
+## tapable工作流程
 - 实例化hook注册事件监听
 - 通过hook触发事件监听
 - 执行懒编译生成的可执行代码
 
-### Hook
+## Hook
 Hook本质是tapable实例对象
 
 Hook可分为同步和异步两种，异步又可以分为串行和并行两种。
@@ -310,7 +310,7 @@ Hook可分为同步和异步两种，异步又可以分为串行和并行两种�
 - AsyncParalleHook
 - AsyncParalleBailHook
 
-### 手写synchook和asynchook
+## 手写synchook和asynchook
 大概思路：
 - 实例化hook: 定义hook._x = [f1, f2, ...]; hook.taps = [{}, {}];
 - 实例调用tap: taps = [{}, {}]
@@ -318,23 +318,23 @@ Hook可分为同步和异步两种，异步又可以分为串行和并行两种�
 - call()
 
 详见“手写hook”文件夹
-
+# webpack源码工作流程
 ## webpack 入口
+**两个主要步骤**
 `npx webpack`
 => call一个executable文件(核心的作用就组装了`node xxx/webpack/bin/webpack.js`)
 => 核心操作就是require了`node_modules/webpack-cli/bin/cli.js`
 => `cli.js`一般有二个操作，处理参数`options`，将参数交给不同的逻辑（分发业务）
-```ts
-let complier = webpack(options)
-complier.run(function (err, stats) { ...})
-```
 
-### 详细过程
-**两个主要步骤**
+总结起来就是
 - 实例化 compiler 对象（ 它会贯穿整个webpack工作的过程 ）
 - 由 compiler 调用 run 方法
+```ts
+let complier = webpack(options)
+complier.run(function (err, stats) { ... })
+```
 
-#### compiler 实例化操作
+### compiler 实例化操作
 - compiler继承 tapable ，因此它具备钩子的操作能力（监听事件，触发事件，webpack是一个事件流）
 - 在实例化了 compiler 对象之后就往它的身上挂载很多属性，其中 NodeEnvironmentPlugin 这个操作就让它具备了文件读写的能力（我们的模拟时采用的是 node 自带的 fs )
 - 具备了 fs 操作能力之后又将 plugins 中的插件都挂载到了 compiler 对象身上  
@@ -345,7 +345,7 @@ complier.run(function (err, stats) { ...})
   - 其中 make 钩子 在 compiler.run 的时候会被触发，走到这里就意味着某个模块执行打包之前的所有准备工作就完成了
   - addEntry 方法调用（）
 
-#### run 方法执行（ 当前想看的是什么时候触发了 make 钩子 ）
+### run 方法执行
 - run 方法里就是一堆钩子按着顺序触发（beforeRun, run, compile）
 - compile方法执行
   - 准备参数(其中 normalModuleFactory 是我们后续用于创建模块的)
@@ -356,8 +356,7 @@ complier.run(function (err, stats) { ...})
       - 触发了 this.compilation 钩子 和 compilation 钩子的监听
   - 当创建了 compilation 对象之后就触发了 make 钩子
   - 当我们触发 make 钩子监听的时候，将 compilation 对象传递了过去 
-
-#### addEntry过程
+### addEntry过程
 - make 钩子在被触发的时候，接收到了 compilation 对象实现，它的身上挂载了很多内容
 - 从 compilation 当中解构了三个值 
   entry : 当前需要被打包的模块的相对路径（./src/index.js)
@@ -377,10 +376,35 @@ complier.run(function (err, stats) { ...})
 
 03 实现递归的操作 ，所以要将依赖的模块信息保存好，方例交给下一次 create 
 
-#### 总结 
+### 总结 
 - 实例化 compiler  
 - 调用 compile 方法
 - newCompilation 
 - 实例化了一个compilation 对象（它和 compiler 是有关系）
 - 触发 make 监听 
 - addEntry 方法（这个时候就带着 context name entry  一堆的东西） 就奔着编译去了.....
+
+## 手写mini webpack
+参见手写webpack文件夹
+
+# 其它
+## Loader和Plugin的区别
+### Loader
+**Loader用于对模块的源代码进行转换**，可以在加载模块时预处理文件。loader可以将文件从不同的语言（如 TypeScript）转换为 JavaScript，或将内联图像转换为 data URL。
+
+因为 webpack只能处理 JavaScript，如果要处理其他类型的文件，就需要使用 loader 进行转换，loader 本身就是一个函数，接受源文件为参数，返回转换的结果。
+
+loader一般是输入源码，输出源码或者ast之类的对于源码的处理。比如开发一个js的parse就可以用到babylon，`parse.parse(source) => AST`
+
+### Plugin
+**Plugin是用来扩展Webpack功能的**。使用plugin丰富的自定义功能扩展以及生命周期事件，可以控制打包流程的每个环节。通过plugin，webpack可以实现loader所不能完成的复杂功能。作用于整个构建周期，实现对 webpack 的自定义功能扩展。
+
+Plugin一般的调用方法是`new xxxPlugin().apply(compiler)`, 可以往compiler身上挂属性。比如`NodeEnvironmentPlugin`在apply的时候就是往compiler身上挂上文件读写能力（比如fs）
+
+### 区别
+loader是一个转换器，将a文件进行编译输出b文件，这里是操作文件，单纯的文件转换。
+plugin是一个扩展器，它丰富了webpack本身，针对是loader结束后，webpack打包的整个过程，它并不直接操作文件，而是基于事件机制工作，会监听webpack打包过程中的某些节点，执行任务
+
+# References
+拉钩教育的webpack课程
+https://www.jianshu.com/p/407a82b7631b
