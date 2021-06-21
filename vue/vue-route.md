@@ -69,14 +69,14 @@ class VueRouter {
             href: this.to
           },
           on: {
-            click: this.clickhander
+            click: this.clickhandler
           }
         }, [this.$slots.default])
       },
       methods: {
         // this是router-link的实例，也是一个vue的实例，
         // 之前在mixin挂载了$router
-        clickhander(e) {
+        clickhandler(e) {
           history.pushState({}, "", this.to)
           this.$router.data.current = this.to     // 响应式更新当然组件
           e.preventDefault()                      // 不要向服务器发送请求
@@ -97,7 +97,7 @@ class VueRouter {
   initEvent() {
     // 浏览器前进后退功能，点击前进后退会触发popstate
     window.addEventListener("popstate", () => {
-      // 箭头函数 => this => initEvent的this => VueRouter的this
+      // 箭头函数 => 不会改变this，绑定的是initEvent的this => VueRouter的this
       this.data.current = window.location.pathname
     })
   }
