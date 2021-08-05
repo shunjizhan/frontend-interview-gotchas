@@ -130,7 +130,28 @@ const App = () => {
 还可以用来跨组件周期保存数据。
 即使组件重新渲染, 保存的数据仍然还在. 保存的数据被更改不会触发组件重新渲染.
 ```ts
+// 这样是不行的，因为每次重新渲染，App() 重新被调用，timer又被设置成null了，就拿不到之前周期的那个timer。
+const App = () => {
+  let timer = null;
+  useEffect(() => {
+    timer = setInterval(() => { ... }, 1000);
+  }, []);
 
+  const stopTimer = () => {
+    clearInterval(timer);
+  };
+};
+
+const App = () => {
+  let timer = useRef();   // 通过useRef跨周期保存timer的reference
+  useEffect(() => {
+    timer.current = setInterval(() => { ... }, 1000);
+  }, []);
+
+  const stopTimer = () => {
+    clearInterval(timer.current);
+  };
+};
 ```
 
 ## 手写hook
