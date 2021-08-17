@@ -103,13 +103,13 @@ const App = () => (<div></div>);
 const MemoApp = memo(App);
 ```
 
-### useCallback
+### usecb
 缓存函数, 使组件重新渲染时得到相同的函数实例，以实现性能优化。
 
 ```tsx
 const App = () => {
   const [count, setCount] = useState(0);
-  const resetCount = useCallback(() => setCount(0), [setCount]);
+  const resetCount = usecb(() => setCount(0), [setCount]);
 
   // <Test />组件不会频繁更新(假设Test是purecomponent)，因为拿到的resetCount是经过缓存的, 是同一个实例
   return (<Test resetCount={ resetCount }/>)
@@ -155,14 +155,19 @@ const App = () => {
 ```
 
 ## 手写hook
-```ts
+```tsx
+// useState相关
 let state = [];
 let setters = [];
-let stateIndex = 0;
+let stateIdx = 0;
+
+// useEffect相关
+let prevDeps = [];
+let effectIdx = 0;
 
 function reRender () {
-  stateIndex = 0;
-  effectIndex = 0;
+  stateIdx = 0;
+  effectIdx = 0;
   ReactDOM.render(<App />, document.getElementById('root'));
 }
 
@@ -174,39 +179,37 @@ function createSetter (index) {
 }
 
 function useState (initialState) {
-  state[stateIndex] = state[stateIndex] ? state[stateIndex] : initialState;
-  setters.push(createSetter(stateIndex));
-  let value = state[stateIndex];
-  let setter = setters[stateIndex];
-  stateIndex++;
+  state[stateIdx] = state[stateIdx] ? state[stateIdx] : initialState;
+  setters[stateIdx] = setters[stateIdx] ? setters[stateIdx] : createSetter(stateIdx);
+
+  const value = state[stateIdx];
+  const setter = setters[stateIdx];
+  stateIdx++;
+
   return [value, setter];
 }
 
-// 上一次的依赖值
-let prevDepsAry = [];
-let effectIndex = 0;
+const isFunction = x => Object.prototype.toString.call(x) === '[object Function]';
+const isArray = x => Object.prototype.toString.call(x) === '[object Array]';
 
-function useEffect(callback, depsAry) {
-  // 判断callback是不是函数
-  if (Object.prototype.toString.call(callback) !== '[object Function]') throw new Error('useEffect函数的第一个参数必须是函数');
-  // 判断depsAry有没有被传递
-  if (typeof depsAry === 'undefined') {
-    // 没有传递
-    callback();
+function useEffect(cb, deps) {
+  if (!isFunction(cb)) throw new Error('useEffect函数的第一个参数必须是函数');
+
+  if (typeof deps === 'undefined') {
+    cb();     // 没有deps,每次都直接调用cb()
   } else {
-    // 判断depsAry是不是数组
-    if (Object.prototype.toString.call(depsAry) !== '[object Array]') throw new Error('useEffect函数的第二个参数必须是数组');
-    // 获取上一次的状态值
-    let prevDeps = prevDepsAry[effectIndex];
-    // 将当前的依赖值和上一次的依赖值做对比 如果有变化 调用callback
-    let hasChanged = prevDeps ? depsAry.every((dep, index) => dep === prevDeps[index]) === false : true;
-    // 判断值是否有变化
-    if (hasChanged) {
-      callback();
-    }
+    if (!isArray(deps)) throw new Error('useEffect函数的第二个参数必须是数组');
+
+    const prevDeps = prevDeps[effectIdx];
+    const hasChanged = (
+      !prevDeps ||                                       // 初次渲染
+      deps.some((dep, index) => dep !== prevDeps[index]) // deps变化
+    );
+    hasChanged && cb();
+
     // 同步依赖值
-    prevDepsAry[effectIndex] = depsAry;
-    effectIndex++;
+    prevDeps[effectIdx] = deps;
+    effectIdx++;
   }
 }
 

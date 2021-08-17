@@ -136,7 +136,7 @@ type Fiber = {
 };
 ```
 
-<img src="../images/6.png"/>
+<img src="./assets/effectChain.png"/>
 
 ### 双缓存技术
 **缓存可以理解为Fiber树是对DOM的缓存。** React 使用双缓存技术(两棵Fiber树）完成 Fiber 树的构建与替换，实现DOM对象的快速更新。
@@ -147,9 +147,9 @@ type Fiber = {
 
 在 current Fiber 节点对象中有一个 alternate 属性指向对应的 workInProgress Fiber 节点对象，在 workInProgress Fiber 节点中有一个 alternate 属性也指向对应的 current Fiber 节点对象。
 
-<img src="../images/3.png" width="45%"/>
+<img src="./assets/双缓存1.png" width="45%"/>
 
-<img src="../images/4.png" width="45%"/>
+<img src="./assets/双缓存2.png" width="45%"/>
 
 ### 区分 fiberRoot 与 rootFiber
 - fiberRoot 表示 Fiber 数据结构对象，是 Fiber 数据结构中的最外层对象（它不是一个Fiber对象）
@@ -159,7 +159,7 @@ type Fiber = {
 - 在 React 应用中 fiberRoot 只有一个，而 rootFiber 可以有多个，因为 render 方法是可以调用多次的
 - fiberRoot 会记录应用的更新信息，比如协调器在完成工作后，会将工作成果存储在 fiberRoot 中。
 
-<img src="../images/7.png"/>
+<img src="./assets/fiberRoot.png"/>
 
 ### 具体渲染流程
 要将 React 元素渲染到页面中，分为两个阶段，render 阶段和 commit 阶段。
@@ -391,10 +391,10 @@ function performUnitOfWork(unitOfWork: Fiber): Fiber | null {
 ```
 
 fiber数据结构
-<img src="../images/fiber.jpeg"/>
+<img src="./assets/fiber.jpeg"/>
 
 每个fiber里面存的effect
-<img src="../images/effect.jpg"/>
+<img src="./assets/effect.jpg"/>
 
 ### 2. commit阶段
 #### 2.1 finishSyncRender

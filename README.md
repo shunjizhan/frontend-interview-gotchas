@@ -1,9 +1,28 @@
 # Frontend Interview Gotchas
-Just some fronend study notes:
-- 函数式编程
-- promise + 手写promise （WIP）
-- webpack + 手写mini webpack
-- vue （WIP）
-- snabdom + DOM diff（WIP）
-- React（WIP）
-- Typescript（WIP）
+一些前端学习的笔记：
+- JS基础：
+  - promise + 手写mini promise
+  - 函数式编程
+  - 异步事件
+  - 作用域和闭包
+  - this
+  - event loop
+- webpack
+  - webpack原理 
+  - 手写mini webpack
+- React
+  - React原理 + 手写mini React
+  - Hook用法原理 + 手写mini hook
+  - Redux用法原理 + 手写mini Redux
+  - DOM diff
+  - Fiber
+  - SSR + 手写mini SSR
+  - Next
+  - Gatsby
+  - React性能优化
+- vue 
+  - snabdom + DOM diff
+  - SSR
+  - Nuxt
+- HTML + CSS
+  - Flex布局
