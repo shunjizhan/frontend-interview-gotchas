@@ -1,6 +1,6 @@
 # React 原理
-[React基础知识](https://github.com/shunjizhan/mini-react#react-%E7%9F%A5%E8%AF%86%E7%82%B9)
-[Mini React的实现](https://github.com/shunjizhan/mini-react#react-%E7%9F%A5%E8%AF%86%E7%82%B9)
+# React基本原理
+基本原理参考：[手写Mini React](https://github.com/shunjizhan/mini-react) 的README。
 
 # Fiber
 ## 动机

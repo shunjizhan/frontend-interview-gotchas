@@ -1,21 +1,30 @@
 # Frontend Interview Gotchas
 一些前端学习的笔记：
 - JS基础：
-  - promise + 手写mini promise
+  - 原型链
+    - 手写new
+    - 手写instance of
+  - promise
+    - 手写mini promise
+    - async/await
   - 函数式编程
+    - 手写柯里化
   - 异步事件
   - 作用域和闭包
   - this
   - event loop
 - webpack
   - webpack原理 
+  - loader, plugin
+  - tapable
+    - 手写tapable hook
   - 手写mini webpack
 - React
   - React原理 + 手写mini React
   - Hook用法原理 + 手写mini hook
   - Redux用法原理 + 手写mini Redux
+  - Fiber + 手写mini Fiber
   - DOM diff
-  - Fiber
   - SSR + 手写mini SSR
   - Next
   - Gatsby
@@ -26,3 +35,7 @@
   - Nuxt
 - HTML + CSS
   - Flex布局
+- 各种手写
+  - compose
+  - call/apply/bind
+  - throttle/debounce
