@@ -4,6 +4,8 @@
   - 原型链
     - 手写new
     - 手写instance of
+    - 手写typeof
+    - 继承的6种写法
   - promise
     - 手写mini promise
     - async/await
@@ -13,6 +15,7 @@
   - 作用域和闭包
   - this
   - event loop
+  - 模块
 - webpack
   - webpack原理 
   - loader, plugin
@@ -29,13 +32,21 @@
   - Next
   - Gatsby
   - React性能优化
-- vue 
+- Vue 
   - snabdom + DOM diff
   - SSR
   - Nuxt
-- HTML + CSS
+- HTML
+  - DOM基础和API
+- CSS
+  - 盒装模型
   - Flex布局
+  - Grid布局
+  - 居中的100种方式
 - 各种手写
   - compose
   - call/apply/bind
   - throttle/debounce
+- 浏览器基础
+  - 跨域
+  - http协议
