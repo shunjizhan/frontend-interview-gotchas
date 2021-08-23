@@ -16,7 +16,6 @@ while (true) {}
 ```
 
 ES6 also introdeced `job queue`, which is reserved for `promise` (and `async/await`). Job queue has high priority in executing callbacks, compared to callback queue, so `thenable` callbacks will be excuted prior to other callbacks.
-
 ```js
 console.log('start');
 
@@ -57,6 +56,8 @@ JS引擎（比如V8）在JS运行时（比如node和浏览器）中运行，运�
 - 当call stack遇到web api的调用时，就会丢给web api container去处理，web api container在另外的线程中处理完以后，会把结果存在callback queue里面。event loop就是指每当call stack空了以后，就会检查callback queue，如果有回调函数，就拿出来装到call stack里面处理。
 - cb任务也分优先级，其中微任务比宏任务有更高的优先级。
 - JS是同步的语言，只有一个call stack，只能执行call stack顶部的函数。但event loop的存在让JS能以类似异步的方式执行，这是非常酷的事情。这样一个很大的优势就是，JS里面很多的blocking executions阻塞任务（比如I/O）都会通过web api用异步的方式执行，通过事件和回调的方式与JS主线程交互，这样就避免了阻碍主线程的call stack。如果阻塞的任务出错了，就永远不会回到callback queue（比如server永远不回应），也不会对主线程产生任何影响。
+
+![event loop](/assets/event%20loop.png)
 
 ## event loop的执行顺序
 - 首先执行 script 宏任务
@@ -289,3 +290,4 @@ console.log(5)
 
 ## references
 - https://mp.weixin.qq.com/s/9zQ5nEsk4SQuzc2reUPasg
+- https://mp.weixin.qq.com/s/KpQm5ypXU-ZFCQK-PxVcdg

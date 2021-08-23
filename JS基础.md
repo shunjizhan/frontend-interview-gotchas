@@ -103,6 +103,33 @@ WeakMap 和 WeakSet 被用作“主要”对象存储之外的“辅助”数据
 - `Reflect.ownKeys(obj)` 返回一个由自身所有键组成的数组。
 - `obj.hasOwnProperty(key)` obj 拥有名为 key 的自身的属性（非继承而来的），则返回 true。
 
+### 可枚举属性
+- 如果想列举自己的所有可枚举 + 不可枚举属性（不包括原型链上的属性），可以用`Object.getOwnPropertyNames`，如果想check就用hasOwnproperty
+- 如果想列举自己的可枚举属性，可以用`Object.keys`
+- 如果想遍历自己 + 原型链上的可枚举属性，可以用`for ... in` (注意Object是没有forEach的，因为是Array.prototype.forEach()，只有array有)
+
+```ts
+obj = new Object();
+obj.show = 'showed value';
+Object.prototype.protooo = 'protooo';
+
+Object.defineProperty(obj, 'hide', {
+    value: 'hidden value',
+    enumerable: false,
+})
+
+obj.hasOwnProperty('show');        // true,本身的可枚举属性
+obj.hasOwnProperty('hide');        // true, 本身的不可枚举属性
+obj.hasOwnProperty('toString');    // false, 继承自Object.prototype.toString
+
+Object.getOwnPropertyNames(obj);   //  ["show", "hide"]   所有自身属性
+Object.keys(obj);                  //  ["show"]           自身可枚举属性
+
+for (let key in obj) {
+  console.log(key);                // show proto      所有可枚举属性，包括原型链上的
+}
+```
+
 ## class
 ```ts
 class MyClass {
@@ -138,3 +165,4 @@ value（如果 fulfilled）或 reason（如果 rejected）。
 
 ## references
 - https://mp.weixin.qq.com/s/zVCB0Gj_yq_xNuRPW8a2iQ
+- https://segmentfault.com/a/1190000010731448

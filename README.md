@@ -1,21 +1,20 @@
 # Frontend Interview Gotchas
 一些前端学习的笔记：
 - JS基础：
-  - 原型链
+  - [原型链](./原型链.md)
     - 手写new
     - 手写instance of
     - 手写typeof
     - 继承的6种写法
-  - promise
-    - 手写mini promise
-    - async/await
-  - 函数式编程
-    - 手写柯里化
   - 异步事件
+    - [event loop](./eventloop.md)
+    - [promise](./promise.md) + 手写mini promise
+    - async/await
   - 作用域和闭包
   - this
-  - event loop
   - 模块
+  - 函数式编程
+    - 手写柯里化
 - webpack
   - webpack原理 
   - loader, plugin
@@ -43,9 +42,14 @@
   - Flex布局
   - Grid布局
   - 居中的100种方式
-- 各种手写
-  - compose
+- [各种概念的区别](./各种区别.md)
+- [各种手写](./各种手写.md)
   - call/apply/bind
+  - Object.assign
+  - Promise.all
+  - 深拷贝（deepclone）
+  - 每隔一秒打印 1,2,3,4,5
+  - compose
   - throttle/debounce
 - 浏览器基础
   - 跨域
