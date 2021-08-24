@@ -23,8 +23,8 @@
   - 手写mini webpack
 - React
   - React原理 + 手写mini React
-  - Hook用法原理 + 手写mini hook
-  - Redux用法原理 + 手写mini Redux
+  - [Hook用法原理 + 手写mini hook](./react/../React/hook.md)
+  - [Redux用法原理 + 手写mini Redux](./react/../React/状态管理.md)
   - Fiber + 手写mini Fiber
   - DOM diff
   - SSR + 手写mini SSR

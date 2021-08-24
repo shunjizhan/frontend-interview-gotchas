@@ -283,11 +283,295 @@ console.log(5)
 ```
 
 ```ts
-/*
+console.log('start')
 
+setTimeout(function() {
+  console.log('timeout')
+}, 0)
+
+Promise.resolve().then(function() {
+  console.log('p1')
+}).then(function() {
+  console.log('p2')
+})
+
+console.log('end')
+/*
+  start
+  end
+  p1
+  p2  
+  timeout
 */
+```
+
+promise chain每一层都有不同的优先级，不会一个chain一次全部执行完。
+```ts
+Promise.resolve()
+  .then(() => console.log(1))
+  .then(() => console.log(2))
+  .then(() => console.log(3))
+Promise.resolve()
+  .then(() => console.log('a'))
+  .then(() => console.log('b'))
+  .then(() => console.log('c'))
+
+// 1 a （第一层）
+// 2 b （第二层）
+// 3 c （第三层）
+```
+
+async之前的会直接执行，等于是executor里面的。之后的会当做微任务，等于是then里面的
+```ts
+async function async1(){
+  console.log('async1-start')
+  await async2()
+  console.log('async1-end')
+}
+async function async2(){
+  console.log('async2')
+}
+
+console.log('start')
+setTimeout(function(){
+  console.log('setTimeout') 
+}, 0)  
+async1();
+new Promise(function(resolve){
+  console.log('promise1')
+  resolve();
+}).then(function(){
+  console.log('promise2')
+})
+console.log('end')
+
+// start async1-start async2 promise1 end (宏任务结束) async1-end promise2 （微任务结束） setTimeout
+```
+### 各种综合练习题
+```ts
+console.log('start');
+setTimeout(() => {
+    console.log('2');
+    Promise.resolve().then(() => {
+        console.log('3');
+    })
+}, 0);
+
+new Promise(function(resolve, reject) {
+  console.log('4');
+  setTimeout(function() {
+    console.log('5');
+    resolve('6')
+  }, 0)
+}).then((res) => {
+  console.log('7');
+  setTimeout(() => {
+    console.log(res);
+  }, 0)
+})
+
+// start 4 2 3 5 7 6
+```
+
+```ts
+console.log('start');
+const p = function() {
+  return new Promise((resolve, reject) => {
+    const p1 = new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve(1)
+      }, 0)
+      resolve(2)
+    })
+  
+    p1.then((res) => {
+      console.log(res);
+    })
+  
+    console.log(3);
+    resolve(4);
+  })
+}
+
+p().then((res) => {
+    console.log(res);
+})
+console.log('end');
+
+// start 3 end 2 4
+```
+
+# TODO: 这尼玛是为啥？
+```ts
+let resolvePromise = new Promise(resolve => {
+  let resolvedPromise = Promise.resolve()
+  resolve(resolvedPromise);
+  // 提示：resolve(resolvedPromise) 等同于：
+  // Promise.resolve().then(() => resolvedPromise.then(resolve));
+})
+resolvePromise.then(() => {
+  console.log('p0')
+})
+
+let resolvedPromiseThen = Promise.resolve().then(res => {
+  console.log('p1')
+})
+
+resolvedPromiseThen
+  .then(() => {
+    console.log('p2')
+  })
+  .then(() => {
+    console.log('p3')
+  })
+
+// p1 p2（第一层）
+// p0 p3（第二层）
+```
+
+```ts
+console.log('start');
+
+setTimeout(() => {
+  console.log('timeout');
+}, 1 * 2000);
+
+Promise.resolve()
+  .then(function() {
+    console.log('p1');
+  }).then(function() {
+    console.log('p2');
+  });
+
+
+async function foo() {
+  await bar()
+  console.log('async1-end')
+}
+foo()
+
+async function errorFunc () {
+  try {
+    // Tips:参考：https://zh.javascript.info/promise-error-handling：隐式 try…catch
+    // Promise.reject()方法返回一个带有拒绝原因的Promise对象
+    // Promise.reject('error!!!') === new Error('error!!!')
+    await Promise.reject('error')
+  } catch(e) {
+    console.log(e)
+  }
+
+  console.log('err-func');
+  return Promise.resolve('async1-success')
+}
+errorFunc().then(res => console.log(res))
+
+function bar() {
+  console.log('async2-end') 
+}
+
+console.log('end');
+
+// start async2-end end （宏任务）
+// p1 async1-end error err-func （第一层微任务）
+// p2 async1-success （第二层微任务）
+// timeout
+```
+
+这个比较复杂，心酸比较难，必须要track每一步的微任务列表
+可以在https://www.jsv9000.app/来visualize eventloop
+```ts
+new Promise((resolve, reject) => {
+  console.log(1)
+  resolve()
+})
+.then(function then1() {
+  console.log(2)
+  new Promise(function p1(resolve, reject) {
+      console.log(3)
+      setTimeout(() => {
+        reject();
+      }, 3 * 1000);
+      resolve()
+  })
+    .then(function then2() {
+      console.log(4)
+      new Promise(function p2(resolve, reject) {
+          console.log(5)
+          resolve();
+        })
+        .then(function then4() {
+          console.log(7)
+        })
+        .then(function then6() {
+          console.log(9)
+        })
+    })
+    .then(function then5() {
+      console.log(8)
+    })
+})
+.then(function then3() {
+  console.log(6)
+})
+
+// 1       微任务：[then1]
+// 2 3     微任务：[then2, then3]
+// 4 5 6   微任务：[then4, then5]
+// 7 8     微任务：[then6]
+// 9
+```
+
+```ts
+console.log('start');
+
+setTimeout(() => {
+  console.log('2');
+  Promise.resolve().then(() => {
+    console.log('3');
+  })
+  new Promise((resolve) => {
+    console.log('4');
+    resolve();
+  }).then(() => {
+    console.log('5')
+  })
+})
+
+Promise.reject().then(() => {
+  console.log('13');
+}, () => {
+  console.log('14');
+})
+
+new Promise((resolve) => {
+  console.log('7');
+  resolve();
+}).then(() => {
+  console.log('8')
+})
+
+setTimeout(() => {
+  console.log('9');
+  Promise.resolve().then(() => {
+    console.log('10');
+  })
+  new Promise((resolve) => {
+    console.log('11');
+    resolve();
+  }).then(() => {
+    console.log('12')
+  })
+})
+
+console.log('end');
+
+// start 7 end                      微任务：[then14, then8] 宏任务：[timeout1, timeout2]
+// 14 8 (微任务打印）2 4 (宏任务打印）   微任务：[then3, then5]  宏任务：[timeout2]
+// 3 5  (微任务打印）9 11 (宏任务打印）  微任务：[then10，then12]  宏任务：无
+// 10 12
 ```
 
 ## references
 - https://mp.weixin.qq.com/s/9zQ5nEsk4SQuzc2reUPasg
 - https://mp.weixin.qq.com/s/KpQm5ypXU-ZFCQK-PxVcdg
+- https://juejin.cn/post/6880419772127772679#heading-1
