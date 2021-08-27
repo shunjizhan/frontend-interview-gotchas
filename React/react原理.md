@@ -1,9 +1,43 @@
-# React 原理
+
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [React基本原理](#react基本原理)
+- [Fiber](#fiber)
+  - [Why Fiber](#why-fiber)
+    - [问题](#问题)
+    - [解决方案](#解决方案)
+    - [实现思路](#实现思路)
+  - [requestIdleCallback](#requestidlecallback)
+    - [例子](#例子)
+  - [Fiber的实现](#fiber的实现)
+    - [React 架构](#react-架构)
+    - [Fiber数据结构](#fiber数据结构)
+    - [双缓存技术](#双缓存技术)
+    - [区分 fiberRoot 与 rootFiber](#区分-fiberroot-与-rootfiber)
+    - [具体渲染流程](#具体渲染流程)
+    - [1. render阶段](#1-render阶段)
+      - [1.1 渲染入口](#11-渲染入口)
+      - [1.2 updateContainer](#12-updatecontainer)
+      - [1.3 performSyncWorkOnRoot](#13-performsyncworkonroot)
+      - [1.4 workLoopSync](#14-workloopsync)
+      - [1.5 performUnitOfWork](#15-performunitofwork)
+    - [2. commit阶段](#2-commit阶段)
+      - [2.1 finishSyncRender](#21-finishsyncrender)
+      - [2.2 commitRootImpl](#22-commitrootimpl)
+      - [2.3 commit三个子阶段具体执行的细节](#23-commit三个子阶段具体执行的细节)
+    - [React 16和Vue3对比](#react-16和vue3对比)
+    - [拓展阅读](#拓展阅读)
+
+<!-- /code_chunk_output -->
+
+
 # React基本原理
 基本原理参考：[手写Mini React](https://github.com/shunjizhan/mini-react) 的README。
 
 # Fiber
-## 动机
+## Why Fiber
 ### 问题
 React 16 之前的版本比对更新 VirtualDOM 的过程是采用循环加递归实现的，这种比对方式有一个问题，就是一旦任务开始进行就无法中断，如果应用中组件数量庞大，主线程被长期占用，直到整棵 VirtualDOM 树比对更新完成之后主线程才能被释放，主线程才能执行其他任务。这就会导致一些用户交互，动画等任务无法立即得到执行，页面就会产生卡顿, 非常的影响用户体验。 
 
@@ -54,8 +88,10 @@ var value = 0
 
 var expensiveCalculation = function (IdleDeadline) {
   while (iterationCount > 0 && IdleDeadline.timeRemaining() > 1) {
-    value =
-      Math.random() < 0.5 ? value + Math.random() : value + Math.random()
+    value = Math.random() < 0.5
+      ? value + Math.random()
+      : value + Math.random()
+
     iterationCount = iterationCount - 1
   }
   requestIdleCallback(expensiveCalculation)
@@ -136,7 +172,8 @@ type Fiber = {
 };
 ```
 
-<img src="./assets/effectChain.png"/>
+effect chain:
+<img src="./assets/6.png"/>
 
 ### 双缓存技术
 **缓存可以理解为Fiber树是对DOM的缓存。** React 使用双缓存技术(两棵Fiber树）完成 Fiber 树的构建与替换，实现DOM对象的快速更新。
@@ -147,9 +184,9 @@ type Fiber = {
 
 在 current Fiber 节点对象中有一个 alternate 属性指向对应的 workInProgress Fiber 节点对象，在 workInProgress Fiber 节点中有一个 alternate 属性也指向对应的 current Fiber 节点对象。
 
-<img src="./assets/双缓存1.png" width="45%"/>
+<img src="./assets/4.png" width="45%"/>
 
-<img src="./assets/双缓存2.png" width="45%"/>
+<img src="./assets/3.png" width="45%"/>
 
 ### 区分 fiberRoot 与 rootFiber
 - fiberRoot 表示 Fiber 数据结构对象，是 Fiber 数据结构中的最外层对象（它不是一个Fiber对象）
@@ -159,6 +196,7 @@ type Fiber = {
 - 在 React 应用中 fiberRoot 只有一个，而 rootFiber 可以有多个，因为 render 方法是可以调用多次的
 - fiberRoot 会记录应用的更新信息，比如协调器在完成工作后，会将工作成果存储在 fiberRoot 中。
 
+FiberRoot的结构：
 <img src="./assets/fiberRoot.png"/>
 
 ### 具体渲染流程
