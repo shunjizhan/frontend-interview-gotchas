@@ -1,4 +1,31 @@
+# React SSR
+[手写 mini React SSR](https://github.com/shunjizhan/mini-react-ssr)
+
 # NextJS
+<!-- @import "[TOC]" {cmd="toc" depthFrom=2 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [React SSR](#react-ssr)
+- [NextJS](#nextjs)
+  - [介绍](#介绍)
+  - [常用命令](#常用命令)
+  - [基于页面的路由系统](#基于页面的路由系统)
+    - [创建页面](#创建页面)
+    - [页面跳转](#页面跳转)
+  - [静态资源、元数据和CSS](#静态资源元数据和css)
+    - [静态资源](#静态资源)
+    - [修改页面元数据](#修改页面元数据)
+    - [CSS样式](#css样式)
+  - [预渲染](#预渲染)
+    - [选择哪种预渲染](#选择哪种预渲染)
+    - [有数据的静态生成](#有数据的静态生成)
+    - [基于动态路由的静态生成](#基于动态路由的静态生成)
+      - [Incremental Static Regeneration](#incremental-static-regeneration)
+  - [API Routes](#api-routes)
+  - [自定义Next服务器](#自定义next服务器)
+
+<!-- /code_chunk_output -->
 ## 介绍
 Next.js是 React 服务端渲染应用框架,用于构建 SEO 友好的 SPA 应用
 - 支持两种预渲染方式 , 静态生成和服务器端渲染 .
@@ -16,6 +43,7 @@ Next.js是 React 服务端渲染应用框架,用于构建 SEO 友好的 SPA 应�
 **运行开发环境**
 `yarn dev`  
 `next dev`
+
 
 **生成静态网站**
 `next build && next out`

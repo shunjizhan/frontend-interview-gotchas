@@ -1,5 +1,8 @@
+# React基本原理
+基本原理参考：[手写Mini React](https://github.com/shunjizhan/mini-react) 的README。
 
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+# Fiber
+<!-- @import "[TOC]" {cmd="toc" depthFrom=2 depthTo=6 orderedList=false} -->
 
 <!-- code_chunk_output -->
 
@@ -29,14 +32,10 @@
       - [2.3 commit三个子阶段具体执行的细节](#23-commit三个子阶段具体执行的细节)
     - [React 16和Vue3对比](#react-16和vue3对比)
     - [拓展阅读](#拓展阅读)
+  - [手写mini fiber](#手写mini-fiber)
 
 <!-- /code_chunk_output -->
 
-
-# React基本原理
-基本原理参考：[手写Mini React](https://github.com/shunjizhan/mini-react) 的README。
-
-# Fiber
 ## Why Fiber
 ### 问题
 React 16 之前的版本比对更新 VirtualDOM 的过程是采用循环加递归实现的，这种比对方式有一个问题，就是一旦任务开始进行就无法中断，如果应用中组件数量庞大，主线程被长期占用，直到整棵 VirtualDOM 树比对更新完成之后主线程才能被释放，主线程才能执行其他任务。这就会导致一些用户交互，动画等任务无法立即得到执行，页面就会产生卡顿, 非常的影响用户体验。 
@@ -636,3 +635,6 @@ Vue 需要做数据双向绑定，需要进行数据拦截或代理，那它就�
 
 ### 拓展阅读
 [这篇文章](https://mp.weixin.qq.com/s/WpkXrCbgaR2814hnwe5SEw)还不错
+
+## 手写mini fiber
+[这里](https://github.com/shunjizhan/mini-fiber)
