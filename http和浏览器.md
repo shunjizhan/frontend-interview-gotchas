@@ -23,7 +23,7 @@
     - [经典方法](#经典方法)
     - [标准方法](#标准方法)
   - [流量控制](#流量控制)
-- [http](#http)
+- [HTTP](#http)
   - [报文结构](#报文结构)
   - [请求方法](#请求方法)
   - [URI](#uri)
@@ -45,7 +45,7 @@
   - [HTTP 代理](#http-代理)
     - [代理服务器的功能](#代理服务器的功能)
     - [相关头部字段](#相关头部字段)
-- [浏览器相关](#浏览器相关)
+- [浏览器](#浏览器)
   - [V8的优化](#v8的优化)
     - [parse的执行流程](#parse的执行流程)
     - [JIT混合引擎](#jit混合引擎)
@@ -74,12 +74,17 @@
       - [生命周期](#生命周期)
     - [http请求和响应优化的总结](#http请求和响应优化的总结)
   - [第四步：渲染绘制](#第四步渲染绘制)
-    - [细节](#细节)
+    - [渲染绘制的优化](#渲染绘制的优化)
+      - [优化 DOM](#优化-dom)
+      - [优化 CSSOM](#优化-cssom)
+      - [优化JS](#优化js)
+      - [计算样式优化](#计算样式优化)
+      - [页面布局与重绘优化](#页面布局与重绘优化)
+      - [资源加载优化](#资源加载优化)
   - [web性能指标](#web性能指标)
     - [RAIL 性能模型](#rail-性能模型)
     - [基于用户体验的性能指标](#基于用户体验的性能指标)
     - [web vitals](#web-vitals)
-  - [请求的优化](#请求的优化)
   - [references](#references)
 
 <!-- /code_chunk_output -->
@@ -229,7 +234,7 @@ TCP 具有超时重传机制，即间隔一段时间没有等到数据包的回�
 
 而流量控制索要做的事情，就是在通过接收缓存区的大小，控制发送端的发送。如果对方的接收缓存区满了，就不能再继续发送了。
 
-# http
+# HTTP
 ## 报文结构
 对于 TCP 而言，在传输的时候分为两个部分:TCP头和数据部分。HTTP类似，是一个类似header + body的结构，具体来讲是：
 ```
@@ -564,7 +569,7 @@ GET / HTTP/1.1
 
 
 
-# 浏览器相关
+# 浏览器
 ## V8的优化
 ### parse的执行流程
 lexer也叫scanner
@@ -1125,22 +1130,334 @@ this.addEventListener('fetch', event => {
 
 ## 第四步：渲染绘制
 渲染绘制的步骤大致如下。
-- 从所生成 DOM 树的根节点开始向下遍历每个子节点，忽略所有不可见的节点（脚本标记不可见、CSS 隐藏不可见），因为不可见的节点不会出现在渲染树中。
-- 在 CSSOM 中为每个可见的子节点找到对应的规则并应用。
-- 布局阶段，根据所得到的渲染树，计算它们在设备视图中的具体位置和大小，这一步输出的是一个“盒模型”。
-- 绘制阶段，将每个节点的具体绘制方式转化为屏幕上的实际像素
 
-### 细节
-首先浏览器会通过解析 HTML 和 CSS 文件，来构建 DOM（文档对象模型）和 CSSOM（层叠样式表对象模型）
+首先浏览器会通过解析 HTML 和 CSS 文件，来构建 DOM（文档对象模型）和 CSSOM（层叠样式表对象模型）。
 
 浏览器接收读取到的 HTML 文件，其实是文件根据指定编码（UTF-8）的原始字节，形如 3C 62 6F 79 3E 65 6C 6F 2C 20 73 70…。首先需要将字节转换成字符，即原本的代码字符串，接着再将字符串转化为 W3C 标准规定的令牌结构，所谓令牌就是 HTML 中不同标签代表不同含义的一组规则结构。然后经过词法分析将令牌转化成定义了属性和规则值的对象，最后将这些标签节点根据 HTML 表示的父子关系，连接成树形结构，
 
 与将 HTML 文件解析为文档对象模型的过程类似，CSS 文件也会首先经历从字节到字符串，然后令牌化及词法分析后构建为层叠样式表对象模型。
 
+注意，构建 DOM 树和构建 CSSOM 树是可以并行的。
+
 接下来就需要将两个对象模型合并为渲染树，渲染树中只包含渲染可见的节点
+- 从所生成 DOM 树的根节点开始向下遍历每个子节点，忽略所有不可见的节点（脚本标记不可见、CSS 隐藏不可见），因为不可见的节点不会出现在渲染树中。
+- 在 CSSOM 中为每个可见的子节点找到对应的规则并应用。
 
 ![渲染树](/assets/渲染树.png)
 
+再根据渲染树来布局，以计算每个节点的几何信息。将各个节点绘制到屏幕上。
+- 布局阶段，根据所得到的渲染树，计算它们在设备视图中的具体位置和大小，这一步输出的是一个“盒模型”。
+- 绘制阶段，将每个节点的具体绘制方式转化为屏幕上的实际像素
+
+### 渲染绘制的优化
+#### 优化 DOM
+HTML 文件的尺寸应该尽可能的小，目的是为了让客户端尽可能早的接收到完整的 HTML。通常 HTML 中有很多冗余的字符，例如：JS 注释、CSS 注释、HTML 注释、空格、换行。更糟糕的情况是我见过很多生产环境中的 HTML 里面包含了很多废弃代码，这可能是因为随着时间的推移，项目越来越大，由于种种原因从历史遗留下来的问题，不过不管怎么说，这都是很糟糕的。对于生产环境的HTML来说，应该删除一切无用的代码，尽可能保证 HTML 文件精简。
+
+总结起来有三种方式可以优化 HTML：
+- 缩小文件的尺寸（Minify）（删除注释、空格与换行等无用的文本）
+- 使用gzip压缩（Compress）
+- 使用缓存（HTTP Cache）。
+
+本质上，优化 DOM 其实是在尽可能的减小关键路径的长度与关键字节的数量。
+
+#### 优化 CSSOM
+CSS 会阻塞关键渲染路径。有几种常见的优化：
+- 将任何非必需的 CSS 都标记为非关键资源（例如打印和其他媒体查询），并应确保尽可能减少关键 CSS 的数量，以及尽可能缩短传送时间。
+
+举个例子：一些响应式 CSS 只在屏幕宽度符合条件时才会生效，还有一些 CSS 只在打印页面时才生效。这些 CSS 在不符合条件时，是不会生效的。下面就是一些非关键css的声明，只有在特殊情况下才会读取（media里面声明的就是条件判断）
+
+注意：浏览器仍会下载 CSS，只不过不阻塞渲染的资源优先级较低罢了。
+```html
+<link href="print.css" rel="stylesheet" media="print">
+<link href="other.css" rel="stylesheet" media="(min-width: 40em)">
+<link href="portrait.css" rel="stylesheet" media="orientation:portrait">
+```
+
+- 将关键 CSS 直接内联到 HTML 文档内，以减少关键路径中的往返次数。
+- 避免在 CSS 中使用 @import，因为@import会增加额外的关键路径长度。import的时候多一次请求。（打包完的代码应该没这个问题，会自动合在一起把）
+
+#### 优化JS
+**几个快速优化方案**
+- 所有文本资源都应该让文件尽可能的小，JavaScript 也不例外，它也需要：
+  - 删除未使用的代码、缩小文件的尺寸（Minify）
+  - 使用 gzip 压缩（Compress）
+  - 使用缓存（HTTP Cache）
+- 避免运行时间长的 JavaScript，就是代码写好一点，别乱来
+- 延迟解析 JavaScript （defer）
+  - 会先下载，等到 DOM 解析完毕，但在 DOMContentLoaded 事件之前执行。
+  - 脚本保持其相对顺序，就像常规脚本一样。
+- 异步加载 JavaScript （async）
+  - 会先下载，但DOMContentLoaded 和异步脚本不会彼此等待，谁先准备好就谁先执行。
+  - 脚本不会保持其相对顺序，谁先准备好就谁先执行。
+- 通过事件节流和事件防抖来优化
+
+**requestAnimationFrame优化**
+我们应该用requestAnimationFrame代替定时器来执行动画。
+
+使用定时器实现的动画会在一些低端机器上出现抖动或者卡顿的现象，这主要是因为浏览器无法确定定时器的回调函数的执行时机，这是一个宏任务，其创建后回调任务会被放入异步队列，只有当主线程上的任务执行完成后，浏览器才会去检查队列中是否有等待需要执行的任务，所以不是特别精确。
+
+其次屏幕分辨率和尺寸也会影响刷新频率，不同设备的屏幕绘制频率可能会有所不同，而 setInterval 只能设置某个固定的时间间隔，这个间隔时间不一定与所有屏幕的刷新时间同步，那么导致动画出现随机丢帧也在所难免。
+
+requestAnimationFrame最大的优势是将回调函数的执行时机交由系统来决定，即如果屏幕刷新频率是 60Hz，则它的回调函数大约会每 16.7ms 执行一次，如果屏幕的刷新频率是 75Hz，则它回调函数大约会每 13.3ms 执行一次，就是说 requestAnimationFrame 方法的执行时机会与系统的刷新频率同步。
+
+元素移动动画的例子
+```html
+<body>
+  <div class="box"></div>
+  <script>
+    const element = document.querySelector('.box')
+    let start
+
+    function step(timestamp) {
+      if (!start) {
+        start = timestamp
+      }
+
+      const progress = timestamp - start
+
+      // 在这里使用 Math.min() 确保元素刚好停在 200px 的位置
+      element.style.left = `${Math.min(progress / 10, 200)}px`
+
+      // 在两秒后停止动画
+      if (progress < 2000) {
+        window.requestAnimationFrame(step)
+      }
+    }
+
+    window.requestAnimationFrame(step)
+  </script>
+</body>
+```
+
+同样的，也可以把大人物拆成小任务，在每一帧的间隙执行。
+```ts
+const taskList = splitTask(BigTask)
+
+// 微任务处理逻辑，入参为每次任务起始时间戳
+function processTaskList (taskStartTime) {
+  let taskFinishTime
+  do {
+    // 从任务栈中推出要处理的下一个任务
+    const nextTask = taskList.pop()
+    // 处理下一个任务
+    processTask(nextTask)
+    // 执行任务完成的时间，如果时间够 3 毫秒就继续执行
+    taskFinishTime = window.performance.now()
+  } while (taskFinishTime - taskStartTime < 3)
+
+  // 如果任务堆栈不为空则继续
+  if (taskList.length > 0) {
+    requestAnimationFrame(processTaskList)
+  }
+}
+
+requestAnimationFrame(processTaskList)
+```
+
+**使用Web Worker优化**
+JS本身是单线程的，如果有耗时的任务，很容易造成阻塞。所以可将一些纯计算的工作迁移到 Web Worker 上处理，它为 JavaScript 的执行提供了**多线程环境**，主线程通过创建出 Worker 子线程，可以分担一部分自己的任务执行压力。有点类似于更强大的web api，以前web api是固定了，有了web worker，可以把自定义的任务交给多线程去做。
+
+在 Worker 子线程上执行的任务不会干扰主线程，待其上的任务执行完成后，会把结果返回给主线程，这样的好处是让主线程可以更专注地处理 UI 交互，保证页面的使用体验流程。需要注意的几点：
+- Worker 子线程一旦创建成功就会始终执行，不会被主线程上的事件所打断，这就意味着 Worker 会比较耗费资源，所以不应当过度使用，一旦任务执行完毕就应及时关闭。除此之外，在使用中还有以下几点应当注意。
+- DOM限制：Worker 无法读取主线程所处理网页的 DOM 对象，也就无法使用 document、window 和 parent 等对象，只能访问 navigator 和 location 对象。navigator对象包含了一些关于当前正在跑的这个应用的信息，比如navigator.userAgent。
+- 文件读取限制：Worker 子线程无法访问本地文件系统，这就要求所加载的脚本来自网络。
+- 通信限制：主线程和 Worker 子线程不在同一个上下文内，所以它们无法直接进行通信，只能通过消息来完成。
+- 脚本执行限制：虽然 Worker 可以通过 XMLHTTPRequest 对象发起 ajax 请求，但不能使用 alert() 方法和 confirm() 方法在页面弹出提示。
+- 同源限制：Worker 子线程执行的代码文件需要与主线程的代码文件同源。
+
+Web Worker 的使用方法非常简单，在主线程中通过 new Worker() 方法来创建一个 Worker 子线程，构造函数的入参是子线程执行的脚本路径，由于代码文件必须来自网络，所以如果代码文件没能下载成功，Worker 就会失败。
+
+```ts
+// html script
+const worker = new Worker('worker.js')
+
+const num1 = document.querySelector('#num1')
+const num2 = document.querySelector('#num2')
+const result = document.querySelector('#result')
+const btn = document.querySelector('#btn')
+
+btn.addEventListener('click', () => {
+  worker.postMessage({
+    type: 'add',
+    data: {
+      num1: num1.value - 0,
+      num2: num2.value - 0
+    }
+  })
+})
+
+worker.addEventListener('message', e => {
+  const { type, data } = e.data
+  if (type === 'add') {
+    result.textContent = data
+  }
+})
+
+// worker.js
+onmessage = function (e) {
+  const { type, data } = e.data
+  if (type === 'add') {
+    const ret = data.num1 + data.num2
+    postMessage({
+      type: 'add',
+      data: ret
+    })
+  }
+}
+```
+
+在子线程处理完相关任务后，需要及时关闭 Worker 子线程以节省系统资源，关闭的方式有两种：
+- 在主线程中通过调用 worker.terminate() 方法来关闭；
+- 在子线程中通过调用自身全局对象中的 self.close() 方法来关闭。
+
+#### 计算样式优化
+在 JavaScript 运行过后，若发生了添加和删除元素，对样式属性和类进行了修改，就都会导致浏览器重新计算所涉及元素的样式，某些修改还可能会引起页面布局的更改和浏览器的重新绘制。
+
+**减少要计算样式的元素数量**
+首先我们需要知道与计算样式相关的一条重要机制：CSS 引擎在查找样式表时，对每条规则的匹配顺序是从右向左的，这与我们通常从左向右的书写习惯相反。举个例子，如下 CSS 规则：
+```css
+.product-list li {}
+```
+首先遍历页面上的所有 li 标签元素，然后确认每个 li 标签有包含类名为 product-list 的父元素才是目标元素，所以为了提高页面的渲染性能，计算样式阶段应当尽量减少参与样式计算的元素数量。有几个优化方案：
+- 使用类选择器替代标签选择器，对于上面 li 标签的错误示范，如果想对类名为 product-list 下的 li 标签添加样式规则，可直接为相应的 li 标签定义名为 product-list_li 的类选择器规则。
+- 避免使用通配符做选择器，比如`* { margin: 0 }`
+- 降低选择器的复杂性,比如把`.container:nth-last-child(-n+1) .content`改成`final-container-content`。
+- 有id选择器的时候，不要写多余的class,因为id已经可以找到了。
+- 使用 BEM 规范。`type-block__element_modifier`
+
+```css
+// 常规写法
+.mylist {}
+
+.mylist .item {}
+
+// BEM 写法
+.mylist {}
+.mylist__item {}
+
+/* 自定义列表下子元素大、中、小三种尺寸的类选择器 */
+.mylist__item_big {}
+
+.mylist__item_normal {}
+
+.mylist__item_small {}
+
+/* 带自定义尺寸修饰符的类选择器 */
+.mylist__item_size-10 {}
+```
+
+#### 页面布局与重绘优化
+页面布局也叫作**重排**和**回流**，指的是浏览器对页面元素的几何属性进行计算并将最终结果绘制出来的过程。凡是元素的宽高尺寸、在页面中的位置及隐藏或显示等信息发生改变时，都会触发页面的重新布局。
+
+通常页面布局的作用范围会涉及整个文档，所以这个环节会带来大量的性能开销，我们在开发过程中，应当从代码层面出发，尽量避免页面布局或最小化其处理次数。如果仅修改了 DOM 元素的样式，而未影响其几何属性时，则浏览器会跳过页面布局的计算环节，直接进入重绘阶段。虽然重绘的性能开销不及页面布局高，但为了更高的性能体验，也应当降低重绘发生的频率和复杂度。
+
+能够触发浏览器的页面布局与重绘的操作:
+- 对 DOM 元素几何属性的修改，这些属性包括 width、height、padding、margin、left、top 等，某元素的这些属性发生变化时，便会波及与它相关的所有节点元素进行几何属性的重新计算，这会带来巨大的计算量。
+- 更改 DOM 树的结构，浏览器进行页面布局时的计算顺序，可类比树的前序遍历，即从上向下、从左向右。这里对 DOM 树节点的增、删、移动等操作，只会影响当前节点后的所有节点元素，而不会再次影响前面已经遍历过的元素。
+- 获取某些特定的属性值操作，比如页面可见区域宽高 offsetWidth、offsetHeight，页面视窗中元素与视窗边界的距离 offsetTop、offsetLeft，类似的属性值还有 scrollTop、scrollLeft、scrollWidth、scrollHeight、clientTop、clientWidth、clientHeight及调用 window.getComputedStyle 方法。这些属性和方法有一个共性，就是**需要通过即时计算得到**，所以浏览器就需要重新进行页面布局计算。
+
+**避免对样式的频繁改动**
+在通常情况下，页面的一帧内容被渲染到屏幕上会按照如下顺序依次进行，首先执行JavaScript代码，然后依次是样式计算、页面布局、绘制与合成。如果在JavaScript运行阶段涉及上述三类操作，浏览器就会强制提前页面布局的执行，为了尽量降低页面布局计算带来的性能损耗，我们应当避免使用JavaScript对样式进行频繁的修改。如果一定要修改样式，则可通过以下几种方式来降低触发重排或回流的频次。
+
+**不要对样式逐条修改**
+```ts
+/* ----- NO ----- */
+div.style.height = '100px'
+div.style.width = '100px'
+div.style.border = '1px solid blue'
+
+/* ----- YES ----- */
+.my-div {
+  height: 100px;
+  width: 100px;
+  border: 1px solid blue;
+}
+
+div.classList.add('mydiv')
+```
+
+**缓存对敏感属性值的计算**
+```ts
+const list = document.getElementById('list')
+
+/* --------------- before --------------- */
+for (let i = 0; i < 10; i++) {
+  list.style.top = `${list.offsetTop + 10}px`   // 每次计算都会触发页面布局的重新计算
+  list.style.left = `${list.offsetLeft + 10}px`
+}
+
+/* --------------- after --------------- */
+let { offsetTop, offsetLeft } = list
+
+for (let i = 0; i < 10; i++) {
+  offsetTop += 10
+  offsetLeft += 10
+}
+
+// 计算完成后统一赋值触发重排
+list.style.left = offsetLeft
+list.style.top = offsetTop
+```
+
+**使用 requestAnimationFrame 方法控制渲染帧**
+requestAnimationFrame 方法可以控制回调在两个渲染帧之间仅触发一次，如果在其回调函数中一开始就取值到即时敏感属性，其实获取的是上一帧旧布局的值，并不会触发页面布局的重新计算。
+```ts
+requestAnimationFrame(queryDivHeight)
+
+function queryDivHeight () {
+  const div = document.getElementById('div')
+  console.log(div.offsetHeight)
+
+  // 样式的写操作应该放在读操作后进行,如果先写再读，浏览器就无法用上一帧的值，而必须要重新计算。
+  div.classList.add('my-div')
+
+}
+```
+
+**对绘制区域的控制**
+注意对绘制区域的控制，对不需要重新绘制的区域应尽量避免重绘。例如，页面的顶部有一个固定区域的 header 标头，若它与页面其他位置的某个区域位于同一图层，当后者发生重绘时，就有可能触发包括固定标头区域在内的整个页面的重绘。对于固定不变不期望发生重绘的区域，建议可将其提升为独立的绘图层，避免被其他区域的重绘连带着触发重绘。 
+
+虽然创建新的图层能够在一定程度上减少绘制区域，但也应当注意不能创建太多的图层，因为每个图层都需要浏览器为其分配内存及管理开销。
+
+```css
+// 创建新图层
+.nav-layer {
+  will-change: transform;
+  transform: translate(0);    // 如果不支持will-change属性
+}
+```
+
+**降低绘制复杂度**
+比如少点把阴影交给photoshop处理过的图片，而不是直接用css处理。
+
+#### 资源加载优化
+**图片延迟加载**
+显而易见，对于首屏之外的内容，特别是图片和视频，一方面由于资源文件很大，若是全部加载完，既费时又费力，还容易阻塞渲染引起卡顿；另一方面，就算加载完成，用户也不一定会滚动屏幕浏览到全部页面内容，如果首屏内容没能吸引住用户，那么很可能整个页面就将遭到关闭。
+
+既然如此，本着节约不浪费的原则，在首次打开网站时，应尽量只加载首屏内容所包含的资源，而首屏之外涉及的图片或视频，可以等到用户滚动视窗浏览时再去加载。
+
+注意：当延迟加载的媒体资源未渲染出来之前，应当在页面中使用相同尺寸的占位图像。如果不使用占位符，图像延迟显示出来后，尺寸更改可能会使页面布局出现移位。这种现象不仅会对用户体验带来困惑，更严重的还会触发浏览器成本高昂的回流机制，进而增加系统资源开销造成卡顿。而用来占位的图像解决方案也有多种，十分简单的方式是使用一个与目标媒体资源长宽相同的纯色占位符，或者像之前使用的Base64图片，当然也可以采用LQIP或SQIP等方法。
+
+- 传统方式
+- Intersection Observer 方式
+- CSS 类名方式
+- 原生的延迟加载支持
+
+**资源优先级**
+浏览器向网络请求到的所有数据，并非每个字节都具有相同的优先级或重要性。所以浏览器通常都会采取启发式算法，对所要加载的内容先进行推测，将相对重要的信息优先呈现给用户，比如浏览器一般会先加载CSS文件，然后再去加载JavaScript脚本和图像文件。
+
+但即便如此，也无法保证启发式算法在任何情况下都是准确有效的，可能会因为获取的信息不完备，而做出错误的判断。
+
+浏览器基于自身的启发式算法，会对资源的重要性进行判断来划分优先级，通常从低到高分为：Lowest、Low、High、Highest等。
+
+比如，在 `<head>` 标签中，CSS 文件通常具有最高的优先级 Highest，其次是 `<script>` 标签所请求的脚本文件，但当 `<script>` 标签带有 defer 或 async 的异步属性时，其优先级又会降为 Low。
+
+当发现资源默认被分配的优先级不是我们想要的情况时，可以用preload，prefetch，preconnect，dns-prefetch。
+
+- preload和prefetch的本质都是预加载，即先加载、后执行，加载与执行解耦，都不会阻塞页面的onload。
+- preload用来声明当前页面的关键资源，强制浏览器尽快加载，优先级很高；而prefetch用来声明将来可能用到的资源，在浏览器空闲时进行加载，优先级很低。
+- preload可以用来预加载css或者字体，可以用as申明类型，不然不会执行。加载字体资源必须设置crossorigin属性，否则会导致重复加载。
+- preconnect和dns-prefetch都顾名思义，提前建立连接或者提前找ip。假如页面引入了许多第三方域下的资源，而如果它们都通过 preconnect 来预建立连接，其实这样的优化效果反而不好，甚至可能变差，所以这个时候就有另外一个方案，那就是对于最关键的连接使用 preconnect，而其他的则可以用 dns-prefetch。
 
 
 
@@ -1210,10 +1527,8 @@ Google 在 2020 年 5 月 5 日提出了新的用户体验量化方式 Web Vital
 - 加载性能（LCP） — 显示最大内容元素所需时间
 - 交互性（FID） — 首次输入延迟时间
 - 视觉稳定性（CLS） — 累积布局配置偏移
-## 请求的优化
-
-
 ## references
 - https://juejin.cn/post/6844904100035821575#heading-100
 - https://juejin.cn/post/6844904070889603085
 - https://github.com/mqyqingfeng/frontend-interview-question-and-answer/issues/8
+- https://juejin.cn/post/6915204591730556935
