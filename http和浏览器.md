@@ -45,6 +45,28 @@
   - [HTTP 代理](#http-代理)
     - [代理服务器的功能](#代理服务器的功能)
     - [相关头部字段](#相关头部字段)
+  - [缓存和缓存代理](#缓存和缓存代理)
+    - [大体流程](#大体流程)
+    - [为什么产生代理缓存？](#为什么产生代理缓存)
+    - [源服务器的缓存控制](#源服务器的缓存控制)
+    - [客户端的缓存控制](#客户端的缓存控制)
+  - [跨域](#跨域)
+    - [CORS](#cors)
+    - [简单请求](#简单请求)
+    - [非简单请求](#非简单请求)
+    - [跨域解决方案](#跨域解决方案)
+      - [JSONP](#jsonp)
+      - [Nginx](#nginx)
+  - [HTTPS](#https)
+    - [什么是HTTPS，TLS，SSL](#什么是httpstlsssl)
+  - [HTTP2 有哪些改进？](#http2-有哪些改进)
+    - [头部压缩](#头部压缩)
+    - [多路复用](#多路复用)
+    - [服务器推送](#服务器推送)
+  - [websocker](#websocker)
+    - [优势](#优势)
+    - [WebSocket与HTTP的关系](#websocket与http的关系)
+    - [`Socket.IO`](#socketio)
 - [浏览器](#浏览器)
   - [V8的优化](#v8的优化)
     - [parse的执行流程](#parse的执行流程)
@@ -567,7 +589,294 @@ GET / HTTP/1.1
 **X-Real-IP，X-Forwarded-Host，X-Forwarded-Proto**
 分别是获取用户真实 IP，域名，协议名 的字段，不管中间经过多少代理，这个字段始终记录最初的客户端的IP。
 
+## 缓存和缓存代理
+### 大体流程
+首先通过 Cache-Control 验证强缓存是否可用
+- 如果强缓存可用，直接使用
+- 否则进入协商缓存，即发送 HTTP 请求，服务器通过请求头中的If-Modified-Since或者If-None-Match这些条件请求字段检查资源是否更新
+  - 若资源更新，返回资源和200状态码
+  - 否则，返回304，告诉浏览器直接从缓存获取资源
 
+### 为什么产生代理缓存？
+对于源服务器来说，它也是有缓存的，比如Redis, Memcache，但对于 HTTP 缓存来说，如果每次客户端缓存失效都要到源服务器获取，那给源服务器的压力是很大的。
+由此引入了缓存代理的机制。让代理服务器接管一部分的服务端HTTP缓存，客户端缓存过期后就近到代理缓存中获取，代理缓存过期了才请求源服务器，这样流量巨大的时候能明显降低源服务器的压力。
+那缓存代理究竟是如何做到的呢？
+总的来说，缓存代理的控制分为两部分，一部分是源服务器端的控制，一部分是客户端的控制。
+
+### 源服务器的缓存控制
+**private 和 public**  
+在源服务器的响应头中，会加上Cache-Control这个字段进行缓存控制字段，那么它的值当中可以加入private或者public表示是否允许代理服务器缓存，前者禁止，后者为允许。
+比如对于一些非常私密的数据，如果缓存到代理服务器，别人直接访问代理就可以拿到这些数据，是非常危险的，因此对于这些数据一般是不会允许代理服务器进行缓存的，将响应头部的Cache-Control设为private，而不是public。
+
+**proxy-revalidate**  
+must-revalidate的意思是客户端缓存过期就去源服务器获取，而proxy-revalidate则表示代理服务器的缓存过期后到源服务器获取。
+
+**s-maxage**
+s是share的意思，限定了缓存在代理服务器中可以存放多久，和限制客户端缓存时间的max-age并不冲突。
+
+
+**小例子：**
+源服务器在响应头中加入这样一个字段:
+```
+Cache-Control: public, max-age=1000, s-maxage=2000
+```
+复制代码相当于源服务器说: 我这个响应是允许代理服务器缓存的，客户端缓存过期了到代理中拿，并且在客户端的缓存时间为 1000 秒，在代理服务器中的缓存时间为 2000 s。
+
+### 客户端的缓存控制
+**max-stale 和 min-fresh**  
+在客户端的请求头中，可以加入这两个字段，来对代理服务器上的缓存进行宽容和限制操作。比如：`max-stale: 5`表示客户端到代理服务器上拿缓存的时候，即使代理缓存过期了也不要紧，只要过期时间在5秒之内，还是可以从代理中获取的。又比如:`min-fresh: 5`表示代理缓存需要一定的新鲜度，不要等到缓存刚好到期再拿，一定要在到期前 5 秒之前的时间拿，否则拿不到。
+
+**only-if-cached**  
+这个字段加上后表示客户端只会接受代理缓存，而不会接受源服务器的响应。如果代理缓存无效，则直接返回504（Gateway Timeout）。
+以上便是缓存代理的内容，涉及的字段比较多，希望能好好回顾一下，加深理解。
+
+## 跨域
+浏览器遵循同源政策，必须这三个都相同才是同源：
+  - scheme(协议)
+  - host(主机)
+  - port(端口)
+
+非同源站点有这样一些限制:
+- 不能读取和修改对方的 DOM
+- 不读访问对方的 Cookie、IndexDB 和 LocalStorage
+- 限制 XMLHttpRequest 请求。(后面的话题着重围绕这个)
+
+当浏览器向目标 URI 发 Ajax 请求时，只要当前 URL 和目标 URL 不同源，则产生跨域，被称为跨域请求。
+
+跨域请求的响应一般会被浏览器所拦截，注意，是**被浏览器拦截**，响应其实是成功到达客户端了。
+
+那这个拦截是如何发生呢？以为为什么需要拦截
+TODO
+
+### CORS
+CORS 其实是 W3C 的一个标准，全称是跨域资源共享。它需要浏览器和服务器的共同支持，具体来说，非 IE 和 IE10 以上支持CORS，服务器需要附加特定的响应头。
+
+### 简单请求
+浏览器根据请求方法和请求头的特定字段，将请求做了一下分类，具体来说规则是这样，凡是满足下面条件的属于简单请求:
+- 请求方法为 GET、POST 或者 HEAD
+- 请求头的取值范围: Accept、Accept-Language、Content-Language、Content-Type(只限于三个值application/x-www-form-urlencoded、multipart/form-data、text/plain)
+
+浏览器画了这样一个圈，在这个圈里面的就是简单请求, 圈外面的就是非简单请求，然后针对这两种不同的请求进行不同的处理。
+
+简单请求发出去之前，浏览器会自动在请求头当中，添加一个Origin字段，用来说明请求来自哪个源。服务器拿到请求之后，在回应时对应地添加Access-Control-Allow-Origin字段，如果Origin不在这个字段的范围中，那么浏览器就会将响应拦截。
+因此，Access-Control-Allow-Origin字段是服务器用来决定浏览器是否拦截这个响应，这是必需的字段。与此同时，其它一些可选的功能性的字段，用来描述如果不会拦截，这些字段将会发挥各自的作用。
+
+**Access-Control-Allow-Credentials**  
+这个字段是一个布尔值，表示是否允许发送 Cookie，对于跨域请求，浏览器对这个字段默认值设为 false，而如果需要拿到浏览器的 Cookie，需要添加这个响应头并设为true, 并且在前端也需要设置withCredentials属性:
+```ts
+let xhr = new XMLHttpRequest();
+xhr.withCredentials = true;
+```
+
+**Access-Control-Expose-Headers**
+这个字段是给 XMLHttpRequest 对象赋能，让它不仅可以拿到基本的 6 个响应头字段（包括Cache-Control、Content-Language、Content-Type、Expires、Last-Modified和Pragma）, 还能拿到这个字段声明的响应头字段。比如这样设置:
+```
+Access-Control-Expose-Headers: xxx
+```
+那么在前端可以通过 `XMLHttpRequest.getResponseHeader('xxx')` 拿到 `xxx` 这个字段的值。
+
+### 非简单请求
+非简单请求相对而言会有些不同，体现在两个方面: **预检请求**和**响应字段**。
+
+例子
+```ts
+var url = 'http://xxx.com';
+var xhr = new XMLHttpRequest();
+xhr.open('PUT', url, true);
+xhr.setRequestHeader('X-Custom-Header', 'xxx');
+xhr.send();
+```
+
+当这段代码执行后，首先会发送预检请求。方法是OPTIONS，同时会加上Origin源地址和Host目标地址，这很简单。同时也会加上两个关键的字段:
+- Access-Control-Request-Method, 列出 CORS 请求用到哪个HTTP方法
+- Access-Control-Request-Headers，指定 CORS 请求将要加上什么请求头
+```
+OPTIONS / HTTP/1.1
+Origin: 当前地址
+Host: xxx.com
+Access-Control-Request-Method: PUT
+Access-Control-Request-Headers: X-Custom-Header
+```
+
+接下来是响应字段，响应字段也分为两部分，一部分是对于预检请求的响应，一部分是对于 CORS 请求的响应。其中有这样几个关键的响应头字段:
+- Access-Control-Allow-Methods: 允许的请求方法列表。
+- Access-Control-Allow-Credentials: 是否允许发送 Cookie
+- Access-Control-Allow-Headers: 允许发送的请求头字段
+- Access-Control-Max-Age: 预检请求的有效期，在此期间，不用发出另外一条预检请求
+
+```
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT
+Access-Control-Allow-Headers: X-Custom-Header
+Access-Control-Allow-Credentials: true
+Access-Control-Max-Age: 1728000
+Content-Type: text/html; charset=utf-8
+Content-Encoding: gzip
+Content-Length: 0
+```
+
+在预检请求的响应返回后
+- 如果请求不满足响应头的条件，则触发XMLHttpRequest的onerror方法，当然后面真正的CORS请求也不会发出去了。
+- 如果请求满足响应头的条件，现在就和发送简单请求的情况是一样的。浏览器自动加上Origin字段，服务端响应头返回Access-Control-Allow-Origin。
+
+### 跨域解决方案
+#### JSONP
+虽然XMLHttpRequest对象遵循同源政策，但是script标签不一样，它可以通过 src 填上目标地址从而发出 GET 请求，实现跨域请求并拿到响应。这也就是 JSONP 的原理，接下来我们就来封装一个 JSONP.。
+```ts
+const jsonp = ({ url, params, callbackName }) => {
+  const generateURL = () => {
+    let dataStr = '';
+    for(let key in params) {
+      dataStr += `${key}=${params[key]}&`;
+    }
+    dataStr += `callback=${callbackName}`;
+    return `${url}?${dataStr}`;
+  };
+
+  return new Promise((resolve, reject) => {
+    // 初始化回调函数名称
+    callbackName = callbackName || Math.random().toString.replace(',', ''); 
+
+    // 创建 script 元素并加入到当前文档中
+    let scriptEle = document.createElement('script');
+    scriptEle.src = generateURL();
+    document.body.appendChild(scriptEle);
+  
+    // 绑定到 window 上，为了后面调用
+    window[callbackName] = (data) => {
+      resolve(data);
+      // script 执行完了，成为无用元素，需要清除
+      document.body.removeChild(scriptEle);
+    }
+  });
+}
+
+// 调用
+jsonp({
+  url: 'http://localhost:3000',
+  params: { 
+    a: 1,
+    b: 2
+  }
+}).then(data => {
+  console.log(data);    // 数据数据数据
+
+
+// 服务端
+const express = require('express')
+const app = express()
+app.get('/', function(req, res) {
+  const { a, b, callback } = req.query
+  const data = '数据数据数据'
+
+  // 注意哦，返回给script标签，浏览器直接把这部分字符串执行
+  res.end(`${callback}(${data})`);
+})
+app.listen(3000)
+```
+
+和CORS相比，JSONP 最大的优势在于兼容性好，IE 低版本不能使用 CORS 但可以使用 JSONP，缺点也很明显，请求方法单一，只支持 GET 请求。
+
+#### Nginx
+Nginx 是一种高性能的反向代理服务器，可以用来轻松解决跨域问题。
+- 正向代理帮助客户端访问客户端自己访问不到的服务器，然后将结果返回给客户端。
+- 反向代理拿到客户端的请求，将请求转发给其他的服务器，主要的场景是维持服务器集群的负载均衡，换句话说，反向代理帮其它的服务器拿到请求，然后选择一个合适的服务器，将请求转交给它。
+
+正向代理服务器是帮客户端做事情，而反向代理服务器是帮其它的服务器做事情。
+
+![nginx](/assets/nginx.png)
+
+**Nginx如何来解决跨域的呢？**
+比如说现在客户端的域名为client.com，服务器的域名为server.com，客户端向服务器发送 Ajax 请求，当然会跨域了，那这个时候让 Nginx 登场了，通过下面这个配置:
+```
+server {
+  listen  80;
+  server_name  client.com;
+  location /api {
+    proxy_pass server.com;
+  }
+}
+```
+Nginx 相当于起了一个跳板机，这个跳板机的域名也是client.com，让客户端首先访问 client.com/api，这当然没有跨域，然后 Nginx 服务器作为反向代理，将请求转发给server.com，当响应返回时又将响应给到客户端，这就完成整个跨域请求的过程。
+
+## HTTPS
+### 什么是HTTPS，TLS，SSL
+之前谈到了 HTTP 是明文传输的协议，传输保文对外完全透明，非常不安全，那如何进一步保证安全性呢？
+由此产生了 HTTPS，其实它并不是一个新的协议，而是在 HTTP 下面增加了一层 SSL/TLS 协议，简单的讲，HTTPS = HTTP + SSL/TLS。
+
+SSL 即安全套接层（Secure Sockets Layer），在 OSI 七层模型中处于会话层(第 5 层)。之前 SSL 出过三个大版本，当它发展到第三个大版本的时候才被标准化，成为 TLS（传输层安全，Transport Layer Security），并被当做 TLS1.0 的版本，准确地说，TLS1.0 = SSL3.1。
+
+现在主流的版本是 TLS/1.2, 之前的 TLS1.0、TLS1.1 都被认为是不安全的，在不久的将来会被完全淘汰。因此我们接下来主要讨论的是 TLS1.2, 当然在 2018 年推出了更加优秀的 TLS1.3，大大优化了 TLS 握手过程。
+
+本质：**TLS/SSL 其实就是通过非对称加密，生成对称加密的 session key 的过程**
+
+RSA的过程：
+![RSA](/assets/RSA.png)
+
+TLS1.3 在 TLS1.2 的基础上废除了大量的算法，提升了安全性。同时利用会话复用节省了重新生成密钥的时间，利用 PSK （Pre-Shared Key） 做到了0-RTT连接。
+
+## HTTP2 有哪些改进？
+由于 HTTPS 在安全方面已经做的非常好了，HTTP 改进的关注点放在了性能方面。
+### 头部压缩
+首先是在服务器和客户端之间建立哈希表，将用到的字段存放在这张表中，那么在传输的时候对于之前出现过的值，只需要把索引(比如0，1，2，...)传给对方即可，对方拿到索引查表就行了。这种传索引的方式，可以说让请求头字段得到极大程度的精简和复用。
+
+![http2的索引](/assets/http2的索引.png)
+
+其次是对于整数和字符串进行哈夫曼编码，哈夫曼编码的原理就是先将所有出现的字符建立一张索引表，然后让出现次数多的字符对应的索引尽可能短，传输的时候也是传输这样的索引序列，可以达到非常高的压缩率。
+
+### 多路复用
+HTTP 队头阻塞的问题的根本原因在于HTTP 基于请求-响应的模型，在同一个 TCP 长连接中，前面的请求没有得到响应，后面的请求就会被阻塞。
+后面我们又讨论到用并发连接和域名分片的方式来解决这个问题，但这并没有真正从 HTTP 本身的层面解决问题，只是增加了 TCP 连接，分摊风险而已。而且这么做也有弊端，多条 TCP 连接会竞争有限的带宽，让真正优先级高的请求不能优先处理。
+
+首先，HTTP/2 认为明文传输对机器而言太麻烦了，不方便计算机的解析，因为对于文本而言会有多义性的字符，比如回车换行到底是内容还是分隔符，在内部需要用到状态机去识别，效率比较低。于是 HTTP/2 干脆把报文全部换成二进制格式，全部传输01串，方便了机器的解析。
+
+原来Headers + Body的报文格式如今被拆分成了一个个二进制的帧，用Headers帧存放头部字段，Data帧存放请求体数据。分帧之后，服务器看到的不再是一个个完整的 HTTP 请求报文，而是一堆乱序的二进制帧。这些二进制帧不存在先后关系，因此也就不会排队等待，也就没有了 HTTP 的队头阻塞问题。
+
+通信双方都可以给对方发送二进制帧，这种二进制帧的双向传输的序列，也叫做**流(Stream)**。HTTP/2 用流来在一个 TCP 连接上来进行多个数据帧的通信，这就是多路复用的概念。
+
+所谓的乱序，指的是不同 ID 的 Stream 是乱序的，但同一个 Stream ID 的帧一定是按顺序传输的。所以还是可以通过ID来还原数据，二进制帧到达后对方会将 Stream ID 相同的二进制帧组装成完整的请求报文和响应报文。在二进制帧当中还有其他的一些字段，实现了优先级和流量控制等功能。
+
+### 服务器推送
+另外值得一说的是 HTTP/2 的服务器推送(Server Push)。在 HTTP/2 当中，服务器已经不再是完全被动地接收请求，响应请求，它也能新建 stream 来给客户端发送消息，当 TCP 连接建立之后，比如浏览器请求一个 HTML 文件，服务器就可以在返回 HTML 的基础上，将 HTML 中引用到的其他资源文件一起返回给客户端，减少客户端的等待。
+
+## websocker
+```
+# 客户端请求
+GET /chat HTTP/1.1     
+Host: server.example.com     
+Upgrade: websocket     
+Connection: Upgrade     
+Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==     
+Sec-WebSocket-Protocol: chat, superchat     
+Sec-WebSocket-Version: 13     
+Origin: http://example.com
+
+# 服务端响应
+HTTP/1.1 101 
+Switching Protocols     
+Upgrade: websocket     
+Connection: Upgrade     
+Sec-WebSocket-Accept: HSmrc0sMlYUkAGmm5OPpG2HaGWk=     
+Sec-WebSocket-Protocol: chat
+```
+
+### 优势
+Websocket协议解决了服务器与客户端全双工通信的问题。（能双向传输数据）
+
+### WebSocket与HTTP的关系
+相同点
+- 都是一样基于TCP的，都是可靠性传输协议。
+- 都是应用层协议。
+
+不同点
+- WebSocket是双向通信协议，模拟Socket协议，可以双向发送或接受信息。HTTP是单向的。
+- WebSocket是需要握手进行建立连接的。
+
+### `Socket.IO`
+`Socket.IO` 由两部分组成：
+- 一个服务端用于集成 (或挂载) 到 Node.JS HTTP 服务器： socket.io
+- 一个加载到浏览器中的客户端： socket.io-client
 
 # 浏览器
 ## V8的优化
@@ -1532,3 +1841,4 @@ Google 在 2020 年 5 月 5 日提出了新的用户体验量化方式 Web Vital
 - https://juejin.cn/post/6844904070889603085
 - https://github.com/mqyqingfeng/frontend-interview-question-and-answer/issues/8
 - https://juejin.cn/post/6915204591730556935
+- https://juejin.cn/post/6844904132071948295#heading-4

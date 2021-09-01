@@ -1,4 +1,82 @@
 
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [tapable](#tapable)
+  - [tapable工作流程](#tapable工作流程)
+  - [Hook](#hook)
+  - [手写synchook和asynchook](#手写synchook和asynchook)
+- [打包过后的代码基本结构](#打包过后的代码基本结构)
+  - [懒加载的代码结构](#懒加载的代码结构)
+- [webpack源码工作流程](#webpack源码工作流程)
+  - [webpack 入口](#webpack-入口)
+    - [compiler 实例化操作](#compiler-实例化操作)
+    - [run 方法执行](#run-方法执行)
+    - [addEntry过程](#addentry过程)
+    - [总结](#总结)
+  - [手写mini webpack](#手写mini-webpack)
+- [其它](#其它)
+  - [Loader和Plugin的区别](#loader和plugin的区别)
+    - [Loader](#loader)
+    - [Plugin](#plugin)
+    - [区别](#区别)
+- [References](#references)
+
+<!-- /code_chunk_output -->
+
+# tapable
+webpack编译流程：
+- 配置初始化
+- 内容编译
+- 输出编译后内容
+
+这种流程叫做`事件驱动型事件流工作机制`
+
+核心是 （都是tapable提供的）：
+- 负责编译的`compiler`
+- 负责创建bundles的`compilation`
+
+## tapable工作流程
+- 实例化hook注册事件监听
+- 通过hook触发事件监听
+- 执行懒编译生成的可执行代码
+
+## Hook
+Hook本质是tapable实例对象
+
+Hook可分为同步和异步两种，异步又可以分为串行和并行两种。
+
+种类：
+- Hook：普通钩子，监听器之间互相独立不干扰
+- BailHook：熔断钩子：某个监听返回非undefined时后续不执行
+- WaterfallHook：瀑布钩子：上一个监听的返回值可传递至下一个
+- LoopHook：循环钩子：如果当前未返回false则一直执行 (webpack中不常见)
+
+同步钩子：
+- SyncHook
+- SyncBailHook
+- SyncWaterfallHook
+- SyncLoopHook
+
+异步串行钩子：
+- AsyncSeriesHook
+- AsyncSeriesBailHook
+- AsyncSeriesWaterfallHook
+
+异步并行钩子：
+- AsyncParalleHook
+- AsyncParalleBailHook
+
+## 手写synchook和asynchook
+大概思路：
+- 实例化hook: 定义hook._x = [f1, f2, ...]; hook.taps = [{}, {}];
+- 实例调用tap: taps = [{}, {}]
+- HookCodeFactory里setup()，create() => 产生的一个可执行的call()
+- call()
+
+详见“手写hook”文件夹
+
 # 打包过后的代码基本结构
 webpack打包过后主要是用到`__webpack_require__`去代替`import`还有`require`,从而能够兼容不同的语法（cjs和esm）。整个的入口是一个IIFE，参数`modules`就是一个obj，key是模块的路径，value是包裹过后的这个模块的代码。不同的语法会有不同的包裹方法，如果是cjs基本就不用怎么包裹。
 
@@ -267,57 +345,6 @@ var modules = {
 })(modules)
 ```
 
-# tapable
-webpack编译流程：
-- 配置初始化
-- 内容编译
-- 输出编译后内容
-
-这种流程叫做`事件驱动型事件流工作机制`
-
-核心是 （都是tapable提供的）：
-- 负责编译的`compiler`
-- 负责创建bundles的`compilation`
-
-## tapable工作流程
-- 实例化hook注册事件监听
-- 通过hook触发事件监听
-- 执行懒编译生成的可执行代码
-
-## Hook
-Hook本质是tapable实例对象
-
-Hook可分为同步和异步两种，异步又可以分为串行和并行两种。
-
-种类：
-- Hook：普通钩子，监听器之间互相独立不干扰
-- BailHook：熔断钩子：某个监听返回非undefined时后续不执行
-- WaterfallHook：瀑布钩子：上一个监听的返回值可传递至下一个
-- LoopHook：循环钩子：如果当前未返回false则一直执行 (webpack中不常见)
-
-同步钩子：
-- SyncHook
-- SyncBailHook
-- SyncWaterfallHook
-- SyncLoopHook
-
-异步串行钩子：
-- AsyncSeriesHook
-- AsyncSeriesBailHook
-- AsyncSeriesWaterfallHook
-
-异步并行钩子：
-- AsyncParalleHook
-- AsyncParalleBailHook
-
-## 手写synchook和asynchook
-大概思路：
-- 实例化hook: 定义hook._x = [f1, f2, ...]; hook.taps = [{}, {}];
-- 实例调用tap: taps = [{}, {}]
-- HookCodeFactory里setup()，create() => 产生的一个可执行的call()
-- call()
-
-详见“手写hook”文件夹
 # webpack源码工作流程
 ## webpack 入口
 **两个主要步骤**
