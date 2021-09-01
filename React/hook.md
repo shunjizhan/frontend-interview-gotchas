@@ -23,6 +23,10 @@
     - [Hook 的使用限制有哪些](#hook-的使用限制有哪些)
     - [useEffect 与 useLayoutEffect 的区别](#useeffect-与-uselayouteffect-的区别)
     - [一个细节](#一个细节)
+    - [hook里面有几个链表](#hook里面有几个链表)
+  - [hook的源码](#hook的源码)
+    - [mount阶段](#mount阶段)
+  - [references](#references)
 
 <!-- /code_chunk_output -->
 # React Hooks
@@ -298,3 +302,95 @@ setState的时候，必须要给一个新的对象，才能触发改变。这点
     setNums(num)    // num不会改变，如果用num = [...num ,1]就可以
   }
 ```
+
+### hook里面有几个链表
+- fiber本身就用链表链接sibling和child，这样可以实现深度优先的遍历
+- 副作用链effect list：深度优先的遍历fiber树就是为了收集这条链，渲染commit阶段就通过遍历副作用链完成 DOM 更新
+- hook链表：存储了按顺序执行的hook的信息
+
+## hook的源码
+无状态组件中fiber对象memoizedState保存当前的hooks形成的链表。每个hook都是一个对象，也是链表中的一个node。
+```ts
+const fiber: Fiber = {
+  memoizedState: null,    // 指向当前函数的hooks形成的链表
+}
+
+const hook: Hook = {
+  // useState中 保存 state信息 ｜ useEffect 中 保存着 effect 对象 ｜ useMemo 中 保存的是缓存的值和deps ｜ useRef中保存的是ref 对象
+  memoizedState: null,  
+
+  baseState: null,
+  baseQueue: null,
+  queue: null,
+  next: null,   // 指向下一个hook
+};
+```
+
+![hook可视化](/assets/hook可视化.png)
+
+### mount阶段
+mount的初始化阶段，在一个函数组件第一次渲染执行上下文过程中，每个react-hooks执行，都会产生一个hook对象，并形成链表结构，绑定在workInProgress的memoizedState属性上，然后react-hooks上的状态，绑定在当前hooks对象的memoizedState属性上。对于effect副作用钩子，会绑定在workInProgress.updateQueue上，等到commit阶段，dom树构建完成，在执行每个 effect 副作用钩子。
+
+在组件初始化的时候,每一次hooks执行，都会调用mountWorkInProgressHook。
+```ts
+function mountWorkInProgressHook() {
+  const hook: Hook = {
+    memoizedState: null,  // useState中 保存 state信息 ｜ useEffect 中 保存着 effect 对象 ｜ useMemo 中 保存的是缓存的值和deps ｜ useRef中保存的是ref 对象
+    baseState: null,
+    baseQueue: null,
+    queue: null,
+    next: null,
+  };
+
+  if (workInProgressHook === null) {    // 第一个hook，创建一个hook链表
+    currentlyRenderingFiber.memoizedState = workInProgressHook = hook;
+  } else {                              // 把hook挂到下一个hook上
+    workInProgressHook = workInProgressHook.next = hook;
+  }
+
+  return workInProgressHook;
+}
+```
+
+对于useXXX函数，都会调用mountXXX，结构大概是
+```ts
+function mountXXX(...args) {
+  const hook = mountWorkInProgressHook();
+  hook.memoizedState = ...    // 保存了状态
+  hook.queue = ...            // 保存了负责更新的信息
+
+  return ...                  // 如果有需要的话，就return，useEffect就没有return
+}
+```
+
+对于useState
+```ts
+function mountState(initialState){
+  const hook = mountWorkInProgressHook();
+  if (typeof initialState === 'function') {
+    // 如果 useState 第一个参数为函数，执行函数得到state
+    initialState = initialState();
+  }
+  hook.memoizedState = hook.baseState = initialState;
+  const queue = (hook.queue = {
+    pending: null,  // 带更新的
+    dispatch: null, // 负责更新函数
+    lastRenderedReducer: basicStateReducer, //用于得到最新的 state ,
+    lastRenderedState: initialState, // 最后一次得到的 state
+  });
+
+  const dispatch = (queue.dispatch = (dispatchAction.bind( // 负责更新的函数
+    null,
+    currentlyRenderingFiber,
+    queue,
+  )))
+  return [hook.memoizedState, dispatch];
+}
+
+// dispatchAction就是useState里面那个setter
+// fiber和queue都被bind成当前的fiber，只用传入action
+function dispatchAction(fiber, queue, action) {}
+```
+
+## references
+- https://juejin.cn/post/6944863057000529933

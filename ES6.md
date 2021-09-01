@@ -28,6 +28,18 @@
     - [for await of](#for-await-of)
     - [spread syntax](#spread-syntax)
     - [BigInt](#bigint)
+  - [ES6模块化](#es6模块化)
+    - [严格模式](#严格模式)
+    - [一些性质](#一些性质)
+    - [复合写法](#复合写法)
+    - [动态加载](#动态加载)
+    - [加载规则](#加载规则)
+    - [ES6 模块与 CommonJS 模块的差异](#es6-模块与-commonjs-模块的差异)
+  - [cjs和mjs](#cjs和mjs)
+    - [cjs加载esm](#cjs加载esm)
+    - [esm加载cjs](#esm加载cjs)
+    - [同时支持两种格式的模块](#同时支持两种格式的模块)
+    - [内部变量](#内部变量)
   - [references](#references)
 
 <!-- /code_chunk_output -->
@@ -670,6 +682,335 @@ now there are 7 primitives type in JS
 - `Undefined` (a declared variable but hasn’t been given a value)
 - `Symbol` (new in ES6, a unique value that's not equal to any other value)
 - `BigInt` (new in ES10)
+
+## ES6模块化
+历史上，JavaScript 一直没有模块（module）体系，无法将一个大程序拆分成互相依赖的小文件，再用简单的方法拼装起来。其他语言都有这项功能，比如 Ruby 的require、Python 的import，甚至就连 CSS 都有@import，但是 JavaScript 任何这方面的支持都没有，这对开发大型的、复杂的项目形成了巨大障碍。
+
+在 ES6 之前，社区制定了一些模块加载方案，最主要的有 CommonJS 和 AMD 两种。前者用于服务器，后者用于浏览器。ES6 在语言标准的层面上，实现了模块功能，而且实现得相当简单，完全可以取代 CommonJS 和 AMD 规范，成为浏览器和服务器通用的模块解决方案。
+
+ES6 模块的设计思想是尽量的静态化，使得编译时就能确定模块的依赖关系，以及输入和输出的变量。CommonJS 和 AMD 模块，都只能在运行时确定这些东西。比如，CommonJS 模块就是对象，输入时必须查找对象属性。
+```ts
+// CommonJS模块 实质是整体加载fs模块（即加载fs的所有方法），生成一个对象（_fs），然后再从这个对象上面读取 3 个方法。这种加载称为“运行时加载”，因为只有运行时才能得到这个对象，导致完全没办法在编译时做“静态优化”。
+let { stat, exists, readfile } = require('fs');
+
+// 等同于
+let _fs = require('fs');
+let stat = _fs.stat;
+let exists = _fs.exists;
+let readfile = _fs.readfile;
+```
+
+ES6 模块不是对象，而是通过export命令显式指定输出的代码，再通过import命令输入。
+```ts
+import { stat, exists, readFile } from 'fs';
+```
+
+上面代码的实质是从fs模块加载 3 个方法，其他方法不加载。这种加载称为“编译时加载”或者静态加载，即 ES6 可以在编译时就完成模块加载，效率要比 CommonJS 模块的加载方式高。当然，这也导致了没法引用 ES6 模块本身，因为它不是对象。
+
+ES6 模块编译时加载的好处：
+- 静态分析:能进一步拓宽 JavaScript 的语法，比如引入宏（macro）和类型检验（type system）这些只能靠静态分析实现的功能。
+- 不再需要UMD模块格式了，将来服务器和浏览器都会支持 ES6 模块格式。目前，通过各种工具库，其实已经做到了这一点。
+- 将来浏览器的新 API 就能用模块格式提供，不再必须做成全局变量或者navigator对象的属性。
+- 不再需要对象作为命名空间（比如Math对象），未来这些功能可以通过模块提供。
+
+### 严格模式
+ES6 的模块自动采用严格模式，不管你有没有在模块头部加上"use strict";。
+
+严格模式主要有以下限制。
+- 变量必须声明后再使用
+- 函数的参数不能有同名属性，否则报错
+- 不能使用with语句
+- 不能对只读属性赋值，否则报错
+- 不能使用前缀 0 表示八进制数，否则报错
+- 不能删除不可删除的属性，否则报错
+- 不能删除变量delete prop，会报错，只能删除属性delete global[prop]
+- eval不会在它的外层作用域引入变量
+- eval和arguments不能被重新赋值
+- arguments不会自动反映函数参数的变化
+- 不能使用arguments.callee
+- 不能使用arguments.caller
+- 禁止this指向全局对象
+- 不能使用fn.caller和fn.arguments获取函数调用的堆栈
+- 增加了保留字（比如protected、static和interface）
+
+尤其需要注意this的限制。ES6 模块之中，顶层的this指向undefined，即不应该在顶层代码使用this。
+
+利用顶层的this等于undefined这个语法点，可以侦测当前代码是否在 ES6 模块之中。
+```ts
+const isEs6 = this === undefined;
+```
+
+### 一些性质
+**动态绑定**  
+export语句输出的接口，与其对应的值是动态绑定关系，即通过该接口，可以取到模块内部实时的值。这一点与 CommonJS 规范完全不同。CommonJS 模块输出的是值的缓存，不存在动态更新
+```ts
+// 输出变量foo，值为bar，500 毫秒之后变成baz
+export var foo = 'bar';
+setTimeout(() => foo = 'baz', 500);
+```
+
+**只读**  
+import命令输入的变量都是只读的，因为它的本质是输入接口。也就是说，不允许在加载模块的脚本里面，改写接口。
+```ts
+import { a } from './xxx.js'
+a = {}; // Syntax Error : 'a' is read-only;
+
+// 如果a是一个对象，改写a的属性是允许的,并没有改变接口
+a.foo = 'hello'; // 合法操作
+```
+
+**变量提升**  
+import命令具有提升效果，会提升到整个模块的头部，首先执行。这种行为的本质是，import命令是编译阶段执行的，在代码运行之前。
+```ts
+// 不会报错
+foo();
+import { foo } from 'my_module';
+```
+
+**不能用import的场景**    
+由于import是静态执行，所以不能使用表达式和变量，这些只有在运行时才能得到结果的语法结构。
+```ts
+import { 'f' + 'oo' } from 'my_module';   // 报错
+
+let module = 'my_module';
+import { foo } from module;       // 报错
+
+// 报错
+if (x === 1) {
+  import { foo } from 'module1';
+} else {
+  import { foo } from 'module2';
+}
+```
+
+**执行所加载的模块**  
+import语句会执行所加载的模块，因此可以import但是不赋值。
+```ts
+// 仅仅执行lodash模块，但是不输入任何值。
+import 'lodash';
+
+// 如果多次重复执行同一句import语句，那么只会执行一次，而不会执行多次。
+import 'lodash';
+import 'lodash';
+```
+
+**default**  
+本质上，export default就是输出一个叫做default的变量或方法，然后系统允许你为它取任意名字。所以，下面的写法是有效的。
+```ts
+// modules.js
+function add(x, y) {
+  return x * y;
+}
+export { add as default };  // 等同于 export default add;
+
+// app.js
+import { default as foo } from 'modules';  // 等同于 import foo from 'modules';
+```
+
+### 复合写法
+```ts
+export { foo, bar } from 'my_module';
+
+// 可以简单理解为
+import { foo, bar } from 'my_module';
+export { foo, bar };
+```
+```ts
+// 接口改名
+export { foo as myFoo } from 'my_module';
+
+// 整体输出
+export * from 'my_module';
+```
+
+### 动态加载
+因为静态分析的缘故，import和export命令只能在模块的顶层，不能在代码块之中（比如，在if代码块之中，或在函数之中）。如果想要实现跟require一样的动态加载，就可以用到import()函数。
+
+import()函数可以用在任何地方，不仅仅是模块，非模块的脚本也可以使用。它是运行时执行，也就是说，什么时候运行到这一句，就会加载指定的模块。另外，import()函数与所加载的模块没有静态连接关系，这点也是与import语句不相同。import()类似于 Node 的require方法，区别主要是前者是异步加载，后者是同步加载。
+
+```ts
+import(`./xxx/aaa.js`)
+  .then(module => { ... });
+```
+
+**适用场合：**
+- 按需加载
+- 条件加载
+- 动态的模块路径
+```ts
+// 按需加载
+button.addEventListener('click', event => {
+  import('./dialogBox.js')
+  .then(dialogBox => {
+    dialogBox.open();
+  })
+});
+
+// 条件加载
+if (condition) {
+  import('moduleA').then(...);
+} else {
+  import('moduleB').then(...);
+}
+
+// 动态的模块路径
+import(getPath())
+  .then(...);
+```
+
+import()加载模块成功以后，这个模块会作为一个对象，当作then方法的参数。因此，可以使用对象解构赋值的语法，获取输出接口。
+```ts
+import('./myModule.js')
+  .then(({export1, export2}) => {});
+```
+
+如果想同时加载多个模块，可以用promise.all
+```ts
+Promise.all([
+  import('./module1.js'),
+  import('./module2.js'),
+  import('./module3.js'),
+])
+  .then(([module1, module2, module3]) => {});
+```
+
+import()也可以用在 async 函数之中。
+```ts
+async function main() {
+  const myModule = await import('./myModule.js');
+  const { export1, export2 } = await import('./myModule.js');
+  const [module1, module2, module3] =
+    await Promise.all([
+      import('./module1.js'),
+      import('./module2.js'),
+      import('./module3.js'),
+    ]);
+}
+```
+
+### 加载规则
+浏览器加载 ES6 模块，使用`<script>`标签，但是要加入type="module"属性。浏览器对于带有type="module"的`<script>`，都是异步加载，不会造成堵塞浏览器，即等到整个页面渲染完，再执行模块脚本，等同于打开了`<script>`标签的defer属性。如果网页有多个`<script type="module">`，它们会按照在页面出现的顺序依次执行。
+
+```html
+<script type="module" src="./foo.js"></script>
+<!-- 等同于 -->
+<script type="module" src="./foo.js" defer></script>
+```
+
+### ES6 模块与 CommonJS 模块的差异
+它们有三个重大差异:
+- CommonJS 模块是运行时加载，ES6 模块是编译时输出接口。这是因为 CommonJS 加载的是一个对象（即module.exports属性），该对象只有在脚本运行完才会生成。而 ES6 模块不是对象，它的对外接口只是一种静态定义，在代码静态解析阶段就会生成。
+- CommonJS 模块输出的是一个值的拷贝，ES6 模块输出的是值的引用。
+- CommonJS 模块的require()是同步加载模块，ES6 模块的import命令是异步加载，有一个独立的模块依赖的解析阶段。
+
+CommonJS 模块输出的是值的拷贝，也就是说，一旦输出一个值，模块内部的变化就影响不到这个值
+```ts
+// lib.js
+var counter = 3;
+function incCounter() {
+  counter++;
+}
+module.exports = {
+  get getCounter() { return counter; }
+  counter: counter,
+  incCounter: incCounter,
+};
+
+// main.js
+var mod = require('./lib');
+
+console.log(mod.counter);     // 3
+mod.incCounter();
+console.log(mod.counter);       // 3,不会变化，这是因为mod.counter是一个原始类型的值，会被缓存
+console.log(mod.getCounter());  // 4 函数可以拿到动态变化的值
+```
+
+ES6 模块的运行机制与 CommonJS 不一样。JS 引擎对脚本静态分析的时候，遇到模块加载命令import，就会生成一个只读引用。等到脚本真正执行时，再根据这个只读引用，到被加载的那个模块里面去取值。换句话说，ES6 的import有点像 Unix 系统的“符号连接”，原始值变了，import加载的值也会跟着变。因此，ES6 模块是动态引用，并且不会缓存值，模块里面的变量绑定其所在的模块。这点很神奇，就像可以给原始类型一个pointer。
+```ts
+// lib.js
+export let counter = 3;
+export function incCounter() {
+  counter++;
+}
+
+// main.js
+import { counter, incCounter } from './lib';
+console.log(counter);   // 3
+incCounter();
+console.log(counter);   // 4,会变化
+```
+另一个例子
+```ts
+// m1.js
+export var foo = 'bar';
+setTimeout(() => foo = 'changed', 500);
+
+// m2.js
+import { foo } from './m1.js';
+console.log(foo);                         // bar
+setTimeout(() => console.log(foo), 600);  // changed
+```
+
+export通过接口，输出的是同一个值。不同的脚本加载这个接口，得到的都是同样的实例。之前用到的context就是这样使用的。
+```ts
+// mod.js
+function Context() {}
+export let c = new Context();   // 不同的脚本加载这个模块，得到的都是同一个实例
+```
+
+## cjs和mjs
+注意，ES6 模块与 CommonJS 模块尽量不要混用
+
+在node里面，mjs文件总是以 ES6 模块加载，cjs文件总是以 CommonJS 模块加载，.js文件的加载取决于package.json里面type字段的设置，如果是`"type": "module"`就会被当做ES6加载。
+
+### cjs加载esm
+require命令不能加载mjs文件，会报错，只有import命令才可以加载mjs文件。反过来，mjs文件里面也不能使用require命令，必须使用import。
+
+require()不支持 ES6 模块的一个原因是，它是同步加载，而 ES6 模块内部可以使用顶层await命令，导致无法被同步加载。但可以在cjs模块里面用import。
+```ts
+// 可以在 CommonJS 模块中运行
+(async () => {
+  await import('./my-app.mjs');
+})();
+```
+
+### esm加载cjs
+import命令可以加载 CommonJS 模块，但是只能整体加载，不能只加载单一的输出项。这是因为 ES6 模块需要支持静态代码分析，而 CommonJS 模块的输出接口是module.exports，是一个对象，无法被静态分析，所以只能整体加载。
+```ts
+import packageMain from 'commonjs-package';   // 正确
+import { method } from 'commonjs-package';    // 报错
+```
+加载单一的输出项，可以写成这样：
+```ts
+import packageMain from 'commonjs-package';
+const { method } = packageMain;
+```
+
+### 同时支持两种格式的模块
+一个模块同时要支持 CommonJS 和 ES6 两种格式,可以进行包装：
+- 如果原始模块是 ES6 格式，那么需要给出一个整体输出接口，比如export default obj，使得 CommonJS 可以用import()进行加载。
+- 如果原始模块是 CommonJS 格式，那么可以加一个包装层。
+
+或者可以在package.json文件的exports字段，指明两种格式模块各自的加载入口。
+```ts
+"exports"：{
+  "require": "./index.js"，
+  "import": "./esm/wrapper.js"
+}
+```
+
+### 内部变量
+ES6 模块应该是通用的，同一个模块不用修改，就可以用在浏览器环境和服务器环境。为了达到这个目标，Node.js 规定 ES6 模块之中不能使用 CommonJS 模块的特有的一些内部变量。
+
+首先，就是this关键字。ES6 模块之中，顶层的this指向undefined；CommonJS 模块的顶层this指向当前模块，这是两者的一个重大差异。
+
+其次，以下这些顶层变量在 ES6 模块之中都是不存在的。
+- arguments
+- require
+- module
+- exports
+- __filename
+- __dirname
 
 ## references
 - https://es6.ruanyifeng.com/
