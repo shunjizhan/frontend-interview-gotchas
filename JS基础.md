@@ -17,7 +17,6 @@
       - [遍历的顺序](#遍历的顺序)
   - [class](#class)
   - [Promise](#promise)
-  - [模块化](#模块化)
   - [references](#references)
 
 <!-- /code_chunk_output -->
@@ -280,9 +279,6 @@ value（如果 fulfilled）或 reason（如果 rejected）。
 - `Promise.resolve(value)` 使用给定 value 创建一个 resolved 的 promise。
 
 - `Promise.reject(error)` 使用给定 error 创建一个 rejected 的 promise。
-
-## 模块化
-TODO
 
 ## references
 - https://mp.weixin.qq.com/s/zVCB0Gj_yq_xNuRPW8a2iQ

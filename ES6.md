@@ -40,6 +40,7 @@
     - [esm加载cjs](#esm加载cjs)
     - [同时支持两种格式的模块](#同时支持两种格式的模块)
     - [内部变量](#内部变量)
+  - [总结](#总结)
   - [references](#references)
 
 <!-- /code_chunk_output -->
@@ -1012,5 +1013,13 @@ ES6 模块应该是通用的，同一个模块不用修改，就可以用在浏�
 - __filename
 - __dirname
 
+
+## 总结
+var和let/const区别
+- es5的时候，var只有全局作用域和函数作用域，let会产生块级作用域
+- 块级作用域中let声明必须有大括号，var就不需要，可以`if(true) var x = 1`
+- var在全局的时候是挂在全局对象上的，let是不会挂在全局对象上的
+- 一个作用域里面可以重复声明var，不能重复声明let，因此也有暂时性死区这个概念
+- let不会有变量提升，不能在声明之前使用，否则报错
 ## references
 - https://es6.ruanyifeng.com/

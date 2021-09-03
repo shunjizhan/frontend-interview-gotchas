@@ -15,7 +15,7 @@
       - [基本使用](#基本使用)
       - [执行异步函数](#执行异步函数)
     - [useMemo](#usememo)
-    - [usecb](#usecb)
+    - [useCallback](#usecallback)
     - [useRef](#useref)
   - [手写hook](#手写hook)
   - [一些问题](#一些问题)
@@ -26,6 +26,7 @@
     - [hook里面有几个链表](#hook里面有几个链表)
   - [hook的源码](#hook的源码)
     - [mount阶段](#mount阶段)
+  - [总结](#总结)
   - [references](#references)
 
 <!-- /code_chunk_output -->
@@ -135,13 +136,13 @@ const App = () => (<div></div>);
 const MemoApp = memo(App);
 ```
 
-### usecb
+### useCallback
 缓存函数, 使组件重新渲染时得到相同的函数实例，以实现性能优化。
 
 ```tsx
 const App = () => {
   const [count, setCount] = useState(0);
-  const resetCount = usecb(() => setCount(0), [setCount]);
+  const resetCount = useCallback(() => setCount(0), [setCount]);
 
   // <Test />组件不会频繁更新(假设Test是purecomponent)，因为拿到的resetCount是经过缓存的, 是同一个实例
   return (<Test resetCount={ resetCount }/>)
@@ -392,5 +393,13 @@ function mountState(initialState){
 function dispatchAction(fiber, queue, action) {}
 ```
 
+## 总结
+- hook的出现为了解决函数组件相对于类组件确实的那些功能，包括状态保存，还有生命周期。
+- 类组件的缺点：
+  - 逻辑复用性不方便,耦合性强：需要HOC或者render props，这样会产生回调地狱
+  - 同一组相关联的逻辑散落在组件各个地方，太分散。hook可以把逻辑写成一组。有点类似vue的composite API，也有人把composite api叫vue hooks哈哈哈
+  - 整个react充满函数式编程的思想，UI = f(data)，函数组件更贴合这种设计：输入prop（data），输出UI。
+
+从功能上来讲，函数组件 + hook = 类组件。这样把一个大的，耦合性强的类组件，拆分成了更小颗粒度的逻辑，就像积木一样，可以按需钩入需要的逻辑，大大优化了开发者体验。
 ## references
 - https://juejin.cn/post/6944863057000529933

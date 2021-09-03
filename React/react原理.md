@@ -32,6 +32,7 @@
       - [2.3 commit三个子阶段具体执行的细节](#23-commit三个子阶段具体执行的细节)
     - [React 16和Vue3对比](#react-16和vue3对比)
     - [拓展阅读](#拓展阅读)
+  - [总结](#总结)
   - [手写mini fiber](#手写mini-fiber)
 
 <!-- /code_chunk_output -->
@@ -635,6 +636,39 @@ Vue 需要做数据双向绑定，需要进行数据拦截或代理，那它就�
 
 ### 拓展阅读
 [这篇文章](https://mp.weixin.qq.com/s/WpkXrCbgaR2814hnwe5SEw)还不错
+
+## 总结
+- **为什么需要fiber**？因为react 15的dom diff是递归式的diff，是同步的且不可以打断。如果dom diff的过程很复杂很耗时，就会导致UI卡顿，比如不能处理用户输入。
+- **解决思路**：Fiber的中文是纤维，顾名思义，就是很小很小的任务。上面的核心问题就是，不可打断，那我们就可以把dom diff的过程，从递归式改成迭代式，打散成一个一个fiber小任务。我们按顺序执行这些小任务的过程中，如果有更高优先级的任务过来了，就先打断，执行高优先级的任务，之后再恢复执行fiber任务。
+- **实现原理梗概**：
+  - 调度层：我们眼镜看到60hz的刷新率就会感觉流畅，所以在每个16ms之内的任务，就不会影响流畅性。有一个requestIdlCallback api可以做这个事情，先去处理重要的事情，如果这16ms之内还有剩余时间，就去执行cb。但是并不是所有的浏览器都支持它，而且它的触发频率也不是很稳定，所以react自己实现了一个requestIdlCallbackPolyfill，也就是自己实现了一个调度层。
+  - 调和阶段（可打断）：
+    - 双缓存：两颗fiber树，一个current一个WIP。
+    - 过程：整个调和过程，就是构建WIP fiber树，收集副作用链的过程。深度优先遍历整个fiber树，通过alternate属性。对比新旧fiber，收集副作用和需要做更新，最后生成一条effect链。
+  - 渲染阶段（不可打断）：遍历副作用链，一个一个去运行这些副作用和更新。
+- **具体实现原理**：
+  - 实现可打断，可继续的代码如下。全局变量wip永远指向当前的这个fiber，所以打断后随时可以继续。
+  ```ts
+  while (workInProgress !== null) {
+    workInProgress = performUnitOfWork(workInProgress);
+  }
+  ```
+  - fiber本质上就是一个对象，可以理解为高级版vdom，存储对应react节点的信息。
+    - alternate存储新旧fiber tree中互相对应的节点
+    - child, next, sibling指向其它fiber，这样就可以实现对整个fiber tree的遍历
+    - memoizedState: 存着hook的链表
+    - updateQueue: 存该Fiber对应的组件产生的状态更新
+    - effectTag: 用来记录当前 Fiber 要执行的 DOM 操作
+  - 深度遍历的过程：
+    - 通过先子节点，再兄弟，再父节点。
+    - 每个fiber都通过alternate跟之前的fiber对比，找出需要的update。这个过程中还会调用自己的hook：
+      - mount的阶段就会产生一条固定长度的hook链表，存在这个fiber的memoizedState里面。这也是为什么不能条件调用hook。
+      - hook的node也是一个节点，也有一个memoizedState，存储的是缓存的信息，比如state信息或者effect里面的回调。
+    - 从子节点回到父节点的时候，会把自己的副作用链挂到父节点的副作用链上去，这样每个父节点都有所有子节点的副作用，最终rootFiber就会有所有的副作用。
+  - 渲染commit阶段，分三个阶段，要一共遍历三次副作用链
+    - before mutation 阶段（执行 DOM 操作前）：getSnapshotBeforeUpdate, useLayoutEffect
+    - mutation 阶段（执行 DOM 操作）：根据 effectTag 执行 DOM 操作
+    - layout 阶段（执行 DOM 操作后）：componentDidUpdate, useEffect
 
 ## 手写mini fiber
 [这里](https://github.com/shunjizhan/mini-fiber)
