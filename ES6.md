@@ -1015,11 +1015,23 @@ ES6 模块应该是通用的，同一个模块不用修改，就可以用在浏�
 
 
 ## 总结
-var和let/const区别
+**var和let/const区别**
 - es5的时候，var只有全局作用域和函数作用域，let会产生块级作用域
 - 块级作用域中let声明必须有大括号，var就不需要，可以`if(true) var x = 1`
 - var在全局的时候是挂在全局对象上的，let是不会挂在全局对象上的
 - 一个作用域里面可以重复声明var，不能重复声明let，因此也有暂时性死区这个概念
 - let不会有变量提升，不能在声明之前使用，否则报错
+
+**箭头函数**
+- 箭头函数没有自己的this对象，this就是定义时上层作用域中的this。
+- 所以不可以当作构造函数。还有一个技术上的直接原因，是没有prototype。
+- 没有arguments对象，如果要用，可以用 rest 参数代替。
+- 不可以使用yield命令，因此箭头函数不能用作 Generator 函数。
+
+**ES6 模块与 CommonJS 模块的差异**
+- CommonJS 模块是运行时加载，ES6 模块是编译时输出接口。这是因为 CommonJS 加载的是一个对象（即module.exports属性），该对象只有在脚本运行完才会生成。而 ES6 模块不是对象，它的对外接口只是一种静态定义，在代码静态解析阶段就会生成。
+- CommonJS 模块输出的是一个值的拷贝，ES6 模块输出的是值的引用。
+- CommonJS 模块的require()是同步加载模块，ES6 模块的import命令是异步加载，有一个独立的模块依赖的解析阶段。
+- cjs可以不能直接require esm，可以内部使用await import()一个esm模块；esm可以直接import一个cjs模块，但是只能整体加载，不能只加载单一的输出项。
 ## references
 - https://es6.ruanyifeng.com/
