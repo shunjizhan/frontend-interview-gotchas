@@ -398,7 +398,7 @@ function dispatchAction(fiber, queue, action) {}
 - 类组件的缺点：
   - 逻辑复用性不方便,耦合性强：需要HOC或者render props，这样会产生回调地狱
   - 同一组相关联的逻辑散落在组件各个地方，太分散。hook可以把逻辑写成一组。有点类似vue的composite API，也有人把composite api叫vue hooks哈哈哈
-  - 整个react充满函数式编程的思想，UI = f(data)，函数组件更贴合这种设计：输入prop（data），输出UI。
+  - 整个react充满函数式编程的思想，UI = f(data)，函数组件更贴合这种设计：输入prop（data），输出UI。vue 2里面就很不函数，耦合性特别强，总是喜欢什么东西都往vue实例的vm身上挂，vm像个木流牛马一样传来传去，包括webpack也是，在实例化的时候会把compiler传来穿去，往上面挂东西。
 
 从功能上来讲，函数组件 + hook = 类组件。这样把一个大的，耦合性强的类组件，拆分成了更小颗粒度的逻辑，就像积木一样，可以按需钩入需要的逻辑，大大优化了开发者体验。
 ## references

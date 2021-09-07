@@ -21,6 +21,7 @@
     - [Loader](#loader)
     - [Plugin](#plugin)
     - [区别](#区别)
+  - [总结](#总结-1)
 - [References](#references)
 
 <!-- /code_chunk_output -->
@@ -431,6 +432,19 @@ Plugin一般的调用方法是`new xxxPlugin().apply(compiler)`, 可以往compil
 ### 区别
 loader是一个转换器，将a文件进行编译输出b文件，这里是操作文件，单纯的文件转换。
 plugin是一个扩展器，它丰富了webpack本身，针对是loader结束后，webpack打包的整个过程，它并不直接操作文件，而是基于事件机制工作，会监听webpack打包过程中的某些节点，执行任务
+
+## 总结
+- webpack是事件驱动型事件流工作机制。主要有两个步骤：创建compiler实例和run
+```ts
+let complier = webpack(options)
+complier.run(function (err, stats) { ... })
+```
+- compiler继承了tapable，因此它具备钩子的操作能力。在实例化了 compiler 对象之后就往它的身上挂载很多属性，每次调用`new Plugin().apply(compiler)`的时候
+  - 就可以往compiler身上挂属性，比如NodeEnvironmentPlugin 这个操作就让它具备了文件读写的能力:`complier.inputFileSystem = fs`
+  - 或者在挂钩子的cb：`compiler.hooks.entryOption.tap(...)`
+- run阶段，在不同时候调用不同的钩子cb：
+  - `this.hooks.xxx.callAsync(...)`
+
 
 # References
 拉钩教育的webpack课程

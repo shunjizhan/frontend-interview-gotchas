@@ -4,6 +4,7 @@
   - 用Typescript重写
   - 用monorepo的形式管理项目结构，所以每个module都可以单独拿出来使用。
 - composition API
+  - 就是vue hook，让同一组逻辑写在一起，提升了可复用性，减少了耦合度。
 - 性能提升
   - 响应式系统升级
     - 2.0响应式系统的核心是defineProperty
@@ -264,6 +265,7 @@ export function reactive (target) {
   return new Proxy(target, handler)
 }
 
+// 这里其实就等于Watcher的建立过程，Dep.target = this
 let activeEffect = null
 export function effect (callback) {
   activeEffect = callback
@@ -451,3 +453,39 @@ app.use(async (ctx, next) => {
 app.listen(3000)
 console.log('Server running @ http://localhost:3000')
 ```
+
+## 总结
+**vue 3的响应式原理**
+- 用一个大的targetMap存储所有的effect，effect就类似于2里面的Watcher的callback
+  - targetMap.key存的是这个大的对象
+  - targetMap.key.property存的就是这个property的Dep对应的所有effect
+  - get的时候，把effect添加到targetMap对应的dep里面。核心函数：track
+  - set的时候，找到对应的所有effect，flush。核心函数：trigger
+  - delete的时候，跟set的时候一样
+- 创建effect的时候，会设一个全局的activeEffect，类似于Dep.target = this。 然后触发effect,effect调用的所有get就会找到activeEffect并且添加到targetMap里面。
+
+**Vue3与Vue2的区别**
+- 源码改变
+  - 用Typescript重写
+  - 用monorepo的形式管理项目结构，所以每个module都可以单独拿出来使用。更倾向于类似函数式编程，跟react有点像。react的scheduler也是可以单独拿出来用的。
+- composition API
+  - 就是vue hook，让同一组逻辑写在一起，提升了可复用性，减少了耦合度。
+- 性能提升
+  - 响应式系统升级
+    - 2.0响应式系统的核心是defineProperty
+    - 3.0使用Proxy重写响应式系统
+      - Proxy对象实现属性监听
+      - 多层属性嵌套，在访问属性的过程中递归处理下一级属性
+      - 可以作为单独的模块使用
+      - 可以监听动态新增的属性（因为是在get的时候才添加依赖）
+      - 可以监听删除的属性
+      - 可以监听数组的索引和length属性
+  - 编译优化
+    - 2.0通过标记静态根节点，优化diff的过程
+    - 3.0标记和提升所有的静态根节点，diff的时候只需要对比动态节点内容
+  - 源码体积的优化
+    - 移除了一些不常用的API
+    - Tree-shaking：用vite打包，基于esmodule，所以天生可以treeshaking
+- Vite
+  - 在开发模式下不需要打包可以直接运行（2.0的Vue-cli开发模式下必须打包才能运行），可以快速冷启动，按需编译，模块热更新
+  - 生产环境下用Rollup打包（基于ES Module，可以静态编译，treeshaking）（Vue-cli使用webpack）

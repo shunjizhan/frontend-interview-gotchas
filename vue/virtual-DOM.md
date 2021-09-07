@@ -1,5 +1,38 @@
 
-# Virtual DOM
+## Virtual DOM
+
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+  - [Virtual DOM](#virtual-dom)
+    - [真实 DOM 成员](#真实-dom-成员)
+    - [什么是 Virtual DOM](#什么是-virtual-dom)
+    - [为什么使用 Virtual DOM](#为什么使用-virtual-dom)
+    - [Virtual DOM 的优势](#virtual-dom-的优势)
+    - [Virtual DOM 库](#virtual-dom-库)
+    - [案例演示](#案例演示)
+- [Snabbdom](#snabbdom)
+  - [基本使用](#基本使用)
+  - [模块](#模块)
+    - [常用模块](#常用模块)
+    - [模块使用](#模块使用)
+  - [Snabbdom 源码](#snabbdom-源码)
+    - [Snabbdom 的核心](#snabbdom-的核心)
+    - [h 函数](#h-函数)
+    - [函数重载](#函数重载)
+    - [`h()`函数重载](#h函数重载)
+    - [VNode](#vnode)
+    - [`patch(oldVnode, newVnode)`](#patcholdvnode-newvnode)
+    - [`init`](#init)
+    - [`patch`](#patch)
+    - [`createElm`](#createelm)
+    - [`patchVnode`](#patchvnode)
+    - [`updateChildren`](#updatechildren)
+  - [总结](#总结)
+
+<!-- /code_chunk_output -->
+
 ### 真实 DOM 成员
 ```ts
 let element = document.querySelector('#app')
@@ -790,3 +823,23 @@ function updateChildren (parentElm: Node,
   }
 }
 ```
+
+## 总结
+**vdom就是普通的 JS 对象来描述 DOM 对象，优势**：
+- 手动操作 DOM 比较麻烦，还需要考虑浏览器兼容性问题，虽然有 jQuery 等库简化 DOM 操作，但是随着项目的复杂 DOM 操作复杂提升
+- Virtual DOM 的好处是当状态改变时不需要立即更新 DOM，只需要创建一个虚拟树来描述 DOM，然后内部使用diff算法高效更新真实DOM，复杂视图情况下提升渲染性能
+- 兼容性好：除了渲染 DOM 以外，还可以实现 SSR(Nuxt.js/Next.js)、原生应用(Weex/React Native)、小程序(mpvue/uni-app)等
+
+**DOM diff**
+- 整体思路：
+  - 传统的dom diff是O(n^3)的复杂度，要计算最小的更新距离。
+  - 在DOM 操作的时候我们很少跨层级的移动节点。因此只需要找同级别的子节点依次比较，这样把复杂度优化成了 O(n)。
+- 具体流程：
+  - 首先找可以复用的节点（同类型的，同key的，可以直接更新或者不用更新）
+    - vue里面的话有四种对比方法
+    - react里面因为同级别的fiber是单向链表，所以只能一个方向对比
+  - 找完了可以复用的节点以后
+    - 如果新节点和老节点都遍历完了，完美！
+    - 新节点完了，老节点没有完，直接删除多余的节点
+    - 老节点完了，新节点没玩，说明有插入
+    - 都没完，说明有节点发生了移动，这样的话就找到节点移动的位置。

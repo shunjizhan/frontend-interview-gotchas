@@ -20,7 +20,6 @@
     - 手写mini promise
     - async/await
   - [函数式编程](./函数式编程.md)
-    - 手写柯里化
 - webpack
   - webpack原理 
   - loader, plugin
@@ -45,14 +44,14 @@
   - [React相关手写链接](./React/手写.md)
 - Vue 
   - [snabdom + DOM diff](./Vue/virtual-DOM.md)
-  - [Vue SSR](./Vue/SSR.md)
-    - NuxtJS
   - 原理
     - [响应式原理](./Vue/响应式原理.md)
     - [route原理](./Vue/vue-route.md)
     - [源码分析](./Vue/源码分析.md)
   - [Vuex](./Vue/vuex.md)
   - [Vue3.0](./Vue/Vue3.0.md)
+  - [Vue SSR](./Vue/SSR.md)
+    - NuxtJS
   
 - [HTML](./HTML.md)
   - DOM基础和API
