@@ -1,6 +1,7 @@
 # Frontend Interview Gotchas
-一些前端学习的笔记：
-- JS基础：
+一些前端知识点的总结
+
+## JS基础
   - [各种API和基础](./JS基础.md)
   - [ES6](./ES6.md)
   - [原型链](./原型链.md)
@@ -20,13 +21,8 @@
     - 手写mini promise
     - async/await
   - [函数式编程](./函数式编程.md)
-- webpack
-  - webpack原理 
-  - loader, plugin
-  - tapable
-    - 手写tapable hook
-  - 手写mini webpack
-- React
+  - [TypeScript](./TypeScript.md)
+## React
   - [React原理](./React/react原理.md)
     - DOM diff
     - 手写mini React
@@ -42,7 +38,8 @@
   - [Gatsby](./React/Gatsby.md)
   - [React性能优化](./React/react性能优化.md)
   - [React相关手写链接](./React/手写.md)
-- Vue 
+
+## Vue 
   - [snabdom + DOM diff](./Vue/virtual-DOM.md)
   - 原理
     - [响应式原理](./Vue/响应式原理.md)
@@ -52,7 +49,7 @@
   - [Vue3.0](./Vue/Vue3.0.md)
   - [Vue SSR](./Vue/SSR.md)
     - NuxtJS
-  
+## HTML和CSS
 - [HTML](./HTML.md)
   - DOM基础和API
 - [CSS](./CSS.md)
@@ -60,7 +57,20 @@
   - Flex布局
   - Grid布局
   - 居中的100种方式
-- [各种概念的区别](./各种区别.md)
+
+## Webpack
+  - webpack原理 
+  - loader, plugin
+  - tapable
+    - 手写tapable hook
+  - 手写mini webpack
+## http和浏览器
+- [http和浏览器基础](./http和浏览器.md)
+  - tcp协议
+  - http协议
+  - 跨域
+
+## 各种
 - [各种手写](./各种手写.md)
   - call/apply/bind
   - Object.assign
@@ -69,15 +79,7 @@
   - 每隔一秒打印 1,2,3,4,5
   - compose
   - throttle/debounce
-- [http和浏览器基础](./http和浏览器.md)
-  - tcp协议
-  - http协议
-  - 跨域
-- [TypeScript](./TypeScript.md)
-- [杂](./杂.md)
-  - 模块化
-- 面试总结
-  - [各种区别](./各种区别.md)
-  - [各种手写](./各种手写.md)
-  - [各种问题](./各种问题.md)
-  - [各种姿势](./各种姿势.md)
+- [各种概念的区别](./各种区别.md)
+- [各种区别](./各种区别.md)
+- [各种问题](./各种问题.md)
+- [杂七杂八的知识](./杂.md)

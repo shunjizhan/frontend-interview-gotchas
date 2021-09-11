@@ -1858,7 +1858,7 @@ Google 在 2020 年 5 月 5 日提出了新的用户体验量化方式 Web Vital
       - 可以定义额外的帧。HTTP/2 定义了近十种帧，为将来的高级应用打好了基础。
       - 还可以不按顺序发送，用数据流的形式，解决了队头阻塞的问题。虽然是乱序的，之后可以根据id还原信息。
   - 使用反向代理服务器，好处是：
-    - 负载均衡
+    - 负载均衡（公司就是用nginx把流量发到不同的shard）
     - 安全防火墙
     - 加密及SSL加速
     - 数据压缩
@@ -1923,3 +1923,4 @@ Google 在 2020 年 5 月 5 日提出了新的用户体验量化方式 Web Vital
 - https://github.com/mqyqingfeng/frontend-interview-question-and-answer/issues/8
 - https://juejin.cn/post/6915204591730556935
 - https://juejin.cn/post/6844904132071948295#heading-4
+- https://mp.weixin.qq.com/s/_zXhg2Hoc6pd4u2HQINuMA

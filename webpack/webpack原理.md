@@ -434,16 +434,21 @@ loader是一个转换器，将a文件进行编译输出b文件，这里是操作
 plugin是一个扩展器，它丰富了webpack本身，针对是loader结束后，webpack打包的整个过程，它并不直接操作文件，而是基于事件机制工作，会监听webpack打包过程中的某些节点，执行任务
 
 ## 总结
-- webpack是事件驱动型事件流工作机制。主要有两个步骤：创建compiler实例和run
+webpack是事件驱动型事件流工作机制。主要有两个步骤：创建compiler实例和run
 ```ts
 let complier = webpack(options)
 complier.run(function (err, stats) { ... })
 ```
+
 - compiler继承了tapable，因此它具备钩子的操作能力。在实例化了 compiler 对象之后就往它的身上挂载很多属性，每次调用`new Plugin().apply(compiler)`的时候
   - 就可以往compiler身上挂属性，比如NodeEnvironmentPlugin 这个操作就让它具备了文件读写的能力:`complier.inputFileSystem = fs`
   - 或者在挂钩子的cb：`compiler.hooks.entryOption.tap(...)`
-- run阶段，在不同时候调用不同的钩子cb：
-  - `this.hooks.xxx.callAsync(...)`
+- run阶段，在不同时候调用不同的钩子cb：`this.hooks.xxx.callAsync(...)`
+  - 确定入口：根据配置中的 entry 找出所有的入口文件；
+  - 编译模块：从入口文件出发，调用所有配置的 Loader 对模块进行翻译，再找出该模块依赖的模块，再递归本步骤直到所有入口依赖的文件都经过了本步骤的处理；
+  - 完成模块编译：在经过第4步使用 Loader 翻译完所有模块后，得到了每个模块被翻译后的最终内容以及它们之间的依赖关系；
+  - 输出资源：根据入口和模块之间的依赖关系，组装成一个个包含多个模块的Chunk，再把每个 Chunk 转换成一个单独的文件加入到输出列表，这步是可以修改输出内容的最后机会；
+  - 输出完成：在确定好输出内容后，根据配置确定输出的路径和文件名，把文件内容写入到文件系统。
 
 
 # References
