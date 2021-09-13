@@ -18,6 +18,7 @@
   - [为组件创建错误边界](#为组件创建错误边界)
   - [为`<li>`加上key](#为li加上key)
   - [依赖优化](#依赖优化)
+  - [总结](#总结)
 
 <!-- /code_chunk_output -->
 
@@ -393,3 +394,13 @@ module.exports = override(useBabelRc())
 - `1.[hash].chunk.js`: 这是第三方库的代码, 包含你在 node_modules 中导入的模块
 - `runtime~main.[hash].js`: webpack运行时代码
 
+
+## 总结
+- memo，shouldComponentUpdate
+- 不要用内联函数和内联样式（JS比css慢）
+- 给li加上key
+- 卸载前进行清理
+- 组件懒加载，减少bundle大小
+- 使用fragment避免额外标记
+- 优化条件渲染
+- 错误边界
