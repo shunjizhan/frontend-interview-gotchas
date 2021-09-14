@@ -13,6 +13,8 @@
     - [块级元素](#块级元素-1)
   - [3种水平垂直居中的方法](#3种水平垂直居中的方法)
   - [两栏布局](#两栏布局)
+  - [三栏布局](#三栏布局)
+  - [块元素，行内元素、行内块元素](#块元素行内元素行内块元素)
   - [flex布局](#flex布局)
   - [grid布局](#grid布局)
   - [画三角形](#画三角形)
@@ -189,7 +191,172 @@ $height: 50px;
 ```
 
 ## 两栏布局
+```html
+<body>
+  <div class="box">
+    <div class="left">左边</div>
+    <div class="right">右边</div>
+  </div>
+  内容内容内容
+</body>
+```
 
+用margin left
+```css
+.left {
+  float: left;
+  width: 200px;
+  height: 400px;
+}
+.right {
+  margin-left: 210px;
+  height: 200px;
+}
+```
+
+absolute
+```css
+.box {
+  position: relative;
+  height: 100px;
+}
+.left {
+  position: absolute;
+  width: 200px;
+  height: 100px;
+}
+.right {
+  margin-left: 200px;
+}
+```
+
+flex
+```css
+.box {
+  display: flex;
+  height: 100px;
+}
+.left {
+  width: 200px;
+}
+.right {
+  flex: 1;
+}
+```
+
+## 三栏布局
+- absolute
+```css
+.outer {
+  position: relative;
+  height: 100px;
+}
+
+.left {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+}
+
+.right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 100px;
+}
+
+.center {
+  margin-left: 100px;
+  margin-right: 200px;
+  height: 100px;
+}
+```
+- flex
+```css
+.outer {
+  display: flex;
+  height: 100px;
+}
+
+.left {
+  width: 100px;
+}
+
+.right {
+  width: 100px;
+}
+
+.center {
+  flex: 1;
+}
+```
+- 圣杯
+```css
+.outer {
+  height: 100px;
+  padding-left: 100px;
+  padding-right: 200px;
+}
+
+.left {
+  position: relative;
+  left: -100px;
+
+  float: left;
+  margin-left: -100%;
+
+  width: 100px;
+  height: 100px;
+  background: tomato;
+}
+
+.right {
+  position: relative;
+  left: 200px;
+
+  float: right;
+  margin-left: -200px;
+
+  width: 200px;
+  height: 100px;
+  background: gold;
+}
+
+.center {
+  float: left;
+
+  width: 100%;
+  height: 100px;
+  background: lightgreen;
+}
+```
+
+双飞翼
+
+
+## 块元素，行内元素、行内块元素
+块元素
+- 常用块元素：div，p，ul，li，h1~h6，dl，dt，dd等
+- 支持全部样式
+- 可以设置宽高，如果没有设置宽度属性，则宽度默认为父级宽度的百分之百
+- 盒子占据一行，即使设置了宽度
+
+内联元素（行内元素）
+- 常见的有：a，span，em，b，strong，i
+- 不支持宽高、上下margin、上下padding
+- 宽高由元素内容决定，如果是图片就为图片大小，如果字体30就按照30
+- 盒子并在一行中
+- 代码换行时盒子会自动产生间距。解决办法：将父元素中的font-size设置为0，再重新设置子元素的font-size。
+- 子元素是内联元素的话，父元素可用text-align设置对其方式
+
+内联块元素
+- 常见的有：image
+- 支持全部样式
+- 可以自己设置宽高，如果元素没有设置宽高，则由内容决定
+- 盒子并在一行
+- 代码换行，盒子产生间距
+- 父元素可用text-align设置子元素对其方式
 
 ## flex布局
 https://www.ruanyifeng.com/blog/2015/07/flex-grammar.html
@@ -232,13 +399,14 @@ z-index只对定位元素有效。
 - 去除浮动。
 
 ## css选择器的优先级
-第一优先级：!important 会覆盖页面内任何位置的元素样式
-1.内联样式，如 style="color: green"，权值为 1000
-2.ID 选择器，如#app，权值为 0100
-3.类、伪类、属性选择器，如.foo, :first-child, div[class="foo"]，权值为 0010
-4.标签、伪元素选择器，如 div::first-line，权值为 0001
-5.通配符、子类选择器、兄弟选择器，如*, >, +，权值为 0000
-6.继承的样式没有权值
+- !important 会覆盖页面内任何位置的元素样式
+- 内联样式，如 style="color: green"，权值为 1000
+- ID 选择器，如#app，权值为 0100
+- 类、伪类、属性选择器，如.foo, :first-child, div[class="foo"]，权值为 0010
+- 标签、伪元素选择器，如 div::first-line，权值为 0001
+- 通配符、子类选择器、兄弟选择器，如*, >, +，权值为 0000
+- 继承的样式没有权值
 
 ## reference
 - https://juejin.cn/post/6844903799446831117
+- https://juejin.cn/post/6905539198107942919#heading-37
